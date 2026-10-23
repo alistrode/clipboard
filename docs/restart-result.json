@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "before": {
+    "state": {
+      "q": "",
+      "selected": 5,
+      "anchor": {
+        "id": 126,
+        "offset": 80
+      },
+      "scrollTop": 6404
+    },
+    "total": 191
+  },
+  "after": {
+    "q": "",
+    "selected": 5,
+    "anchor": {
+      "id": 126,
+      "offset": 80
+    },
+    "scrollTop": 6404
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "popup": {
+    "normalized_mean_absolute_difference_percent": 6.13,
+    "pixel_exact": false,
+    "note": "参考图窗口裁切并缩放；动态文案、字体与阴影均计入，非功能偏差"
+  },
+  "manager": {
+    "normalized_mean_absolute_difference_percent": 3.62,
+    "pixel_exact": false,
+    "note": "参考图窗口裁切并缩放；动态文案、字体与阴影均计入，非功能偏差"
+  }
+}

@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'"><title>剪贴板</title><link rel="stylesheet" href="style.css"></head><body>
+<header class="titlebar"><span id="title">剪贴板</span><div class="window-controls"><button id="more" aria-label="打开管理">⋯</button><button id="minimize" aria-label="最小化">—</button><button id="maximize" aria-label="最大化">□</button><button id="close" aria-label="关闭">×</button></div></header>
+<section class="toolbar"><label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="7"></circle><path d="m15 15 6 6"></path></svg><input id="search" placeholder="搜索" autocomplete="off" aria-label="搜索剪贴板"></label><button id="delete" disabled>删除</button></section>
+<div class="table-head"><span>内容</span><span>复制时间</span></div>
+<main id="list" tabindex="0" aria-label="剪贴板历史"><div id="spacer"></div><div id="rows"></div><div id="empty">还没有记录<br><small>复制文字后会自动保存在这里</small></div></main>
+<aside id="error" role="alert" hidden></aside>
+<section class="preferences"><div class="pref-row"><label id="auto-label">开机自启</label><div class="auto-controls"><div class="auto-line"><button class="switch" id="autostart" role="switch" aria-checked="false" aria-labelledby="auto-label"><span class="thumb"></span></button><span id="auto-status">已关闭</span></div><small id="auto-hint">滑动切换，自动保存并生效。</small></div></div><div class="pref-row"><label for="shortcut">快捷键</label><input id="shortcut" aria-label="唤出快捷键" title="按下新的组合键即可保存" readonly></div></section>
+<footer><span id="foot-left">Ctrl + Shift + V</span><button id="latest">回到最新</button></footer>
+<dialog id="detail"><div class="detail-head">完整内容<button id="detail-close" aria-label="关闭完整内容">×</button></div><textarea id="full-text" readonly aria-label="完整剪贴板内容"></textarea><div class="detail-bottom"><span id="detail-meta"></span><button id="detail-copy">复制内容</button></div></dialog>
+<script src="app.js"></script></body></html>

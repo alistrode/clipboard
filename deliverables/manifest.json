@@ -1,0 +1,73 @@
+{
+  "linux": {
+    "archive": "clipboard-linux-x64.tar.gz",
+    "sha256": "fae726ba5a02e5af15d38adc578c08e01ca7b7b904f7518bda907a6f7ba83128",
+    "bytes": 134977093,
+    "parts": [
+      {
+        "file": "linux.part001",
+        "sha256": "f2978f0d7077c4dfb49df3e4f2b0b3fb275523ad9e582a914f45bd0e55dfef5c",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part002",
+        "sha256": "9a37f850cad823a80fd940634fcd3cdf9c96f210ae10e663f7872932a6a49e2c",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part003",
+        "sha256": "7035b3f69180e801422e39f6e3776f4d16a5cc9c89ca58dae8a1a2893c49d4a3",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part004",
+        "sha256": "0cd41ed7fe08daff62d4a1df63797cf343c38c100df9c5b47504f3d7fa2e7910",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part005",
+        "sha256": "717f2bb5ef29cc3aef70b5ed43fffc1a5408fd916b7817296d2c68dcd4192de1",
+        "bytes": 759365
+      }
+    ],
+    "verified_platform": true
+  },
+  "windows": {
+    "archive": "clipboard-windows-x64.zip",
+    "sha256": "40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a",
+    "bytes": 175623937,
+    "parts": [
+      {
+        "file": "windows.part001",
+        "sha256": "dc10eb22067829fd4dcbe6030b6091bd68fc5f2e9acf43b44c5df9cc8f4d623a",
+        "bytes": 33554432
+      },
+      {
+        "file": "windows.part002",
+        "sha256": "8ecf242c1a3f52d22224898be16f06287da678658faf3cbedaf5c6ac32ba986f",
+        "bytes": 33554432
+      },
+      {
+        "file": "windows.part003",
+        "sha256": "16615b5a8a25652817adbc8c5285476887b9acababd2e6797aee16e5eb1c34ad",
+        "bytes": 33554432
+      },
+      {
+        "file": "windows.part004",
+        "sha256": "f554850ae3291efb8a0fe555b65043d1c29c9f6730a7d936a07c54da0c056a22",
+        "bytes": 33554432
+      },
+      {
+        "file": "windows.part005",
+        "sha256": "13e71446e18dcb90d7c6a7ab0561f06c4150264795b0546a675264abbdd85ba0",
+        "bytes": 33554432
+      },
+      {
+        "file": "windows.part006",
+        "sha256": "397bc9f76cfb1985720815f16fe087997e3aa26064909fc61c7ba81cc799ff77",
+        "bytes": 7851777
+      }
+    ],
+    "verified_platform": false
+  }
+}
