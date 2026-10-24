@@ -1,0 +1,67 @@
+{
+  "passed": [
+    "authorized Acer laptop",
+    "version 1.0.3 installed with source and history backups",
+    "Win+V user-mode takeover ready",
+    "pressing Win alone does not save bare Super",
+    "Win+V can be recorded without Super conversion error",
+    "actual Win+V summons our clipboard 1",
+    "actual Win+V summons our clipboard 2",
+    "long previews stay inside cards",
+    "popup fast scrolling saves visible anchor",
+    "popup viewport has no unloaded blank gap",
+    "popup hide and reopen preserves position",
+    "manager fast scrolling saves visible anchor",
+    "manager viewport has no unloaded blank gap",
+    "manager hide and reopen preserves position",
+    "new clipboard entry preserves browsing anchor",
+    "original clipboard history preserved",
+    "Win+V is the persisted normal shortcut",
+    "updated application normal window remains running"
+  ],
+  "scope": "authorized Acer Windows computer; actual OS build recorded",
+  "backup": "E:\\xxm\\clipboard\\backups\\hotkey-before-40100733146.zip",
+  "history_before": 4,
+  "clipboard_process_inventory": [
+    {
+      "ProcessName": "Clipboard",
+      "Id": 6896,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 17612,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 22784,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 25088,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 35828,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "TextInputHost",
+      "Id": 18556,
+      "SessionId": 1
+    }
+  ],
+  "history_after": 4,
+  "status": "passed",
+  "version": "1.0.3",
+  "normal_processes": {
+    "Id": 14992,
+    "SessionId": 1,
+    "MainWindowHandle": 13046210
+  },
+  "executable": "E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe",
+  "count": 18
+}
