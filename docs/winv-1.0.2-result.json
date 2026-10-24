@@ -1,0 +1,59 @@
+{
+  "passed": [
+    "authorized Acer laptop",
+    "version 1.0.2 installed with source and history backups",
+    "Win+V user-mode takeover ready",
+    "pressing Win alone does not save bare Super",
+    "Win+V can be recorded without Super conversion error",
+    "actual Win+V summons our clipboard 1",
+    "actual Win+V summons our clipboard 2",
+    "original clipboard history preserved",
+    "Win+V is the persisted normal shortcut",
+    "updated application normal window remains running"
+  ],
+  "scope": "authorized Acer Windows computer; actual OS build recorded",
+  "backup": "E:\\xxm\\clipboard\\backups\\hotkey-before-40096050901.zip",
+  "history_before": 3,
+  "clipboard_process_inventory": [
+    {
+      "ProcessName": "Clipboard",
+      "Id": 6948,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 19644,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 25976,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 33864,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "Clipboard",
+      "Id": 36248,
+      "SessionId": 1
+    },
+    {
+      "ProcessName": "TextInputHost",
+      "Id": 18556,
+      "SessionId": 1
+    }
+  ],
+  "history_after": 3,
+  "status": "passed",
+  "version": "1.0.2",
+  "normal_processes": {
+    "Id": 26168,
+    "SessionId": 1,
+    "MainWindowHandle": 57674418
+  },
+  "executable": "E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe",
+  "count": 10
+}
