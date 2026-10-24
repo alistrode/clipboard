@@ -33,6 +33,8 @@ def wait_for(fn, seconds=30):
             value = fn()
             if value:
                 return value
+        except ChildProcessError:
+            raise
         except Exception as exc:
             last = exc
         time.sleep(.15)
@@ -73,8 +75,12 @@ try:
         '-File', str(ROOT / 'scripts/start-windows.ps1'),
         '--test-mode', '--show-manager', '--data-dir=' + str(PROFILE),
     ], cwd=ROOT, stdout=log, stderr=err)
+    def launcher_ready():
+        if process.poll() not in (None, 0):
+            raise ChildProcessError('Windows launcher exited with code ' + str(process.poll()))
+        return (PROFILE / 'test-endpoint.json').exists()
     try:
-        wait_for(lambda: (PROFILE / 'test-endpoint.json').exists(), 90)
+        wait_for(launcher_ready, 90)
     except Exception:
         for stream in [log, err]:
             stream.flush()

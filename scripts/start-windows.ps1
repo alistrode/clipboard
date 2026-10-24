@@ -12,10 +12,15 @@ if (-not (Test-Path $exe)) {
             try { $inputFile.CopyTo($output) } finally { $inputFile.Dispose() }
         }
     } finally { $output.Dispose() }
-    if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a') {
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    $inputFile = [System.IO.File]::OpenRead($archive)
+    try { $hash = [BitConverter]::ToString($hasher.ComputeHash($inputFile)).Replace('-', '').ToLowerInvariant() }
+    finally { $inputFile.Dispose(); $hasher.Dispose() }
+    if ($hash -ne '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a') {
         throw 'Runtime archive SHA-256 mismatch. Download the complete package again.'
     }
-    Expand-Archive -Path $archive -DestinationPath $runtime -Force
+    [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($archive, $runtime)
     Remove-Item $archive
 }
 & $exe @args
