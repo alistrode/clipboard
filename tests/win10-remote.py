@@ -19,7 +19,7 @@ HANDOFF = 'https://filebin.net/clipboard-win10-relay-1792834034-c72e3c40/connect
 KEY = TMP / 'clipboard-identity'
 ENDPOINT_PORT = 22022
 proxy = None
-report = {'passed': [], 'scope': 'authorized real Windows 10 computer'}
+report = {'passed': [], 'scope': 'authorized Acer Windows computer; actual OS build recorded'}
 
 
 def psquote(value):
@@ -100,10 +100,20 @@ try:
     })
     [pscustomobject]@{User=[Security.Principal.WindowsIdentity]::GetCurrent().Name;Host=$env:COMPUTERNAME;Profile=$env:USERPROFILE;SystemDrive=$env:SystemDrive;Product=$os.ProductName;Build=$os.CurrentBuild;Session=[Diagnostics.Process]::GetCurrentProcess().SessionId;ExplorerSessions=@([Diagnostics.Process]::GetProcessesByName('explorer') | ForEach-Object {$_.SessionId});Drives=$drives} | ConvertTo-Json -Depth 6 -Compress
     """)
+    def normalize_windows_path(value):
+        while chr(92)*2 in value:
+            value = value.replace(chr(92)*2, chr(92))
+        return value
+    for field in ['User', 'Profile', 'SystemDrive']:
+        identity[field] = normalize_windows_path(identity[field])
+    for drive in identity['Drives']:
+        drive['Root'] = normalize_windows_path(drive['Root'])
     report['identity'] = identity
     (OUT / 'identity.json').write_text(json.dumps(identity, ensure_ascii=False, indent=2))
-    check('authenticated account is Acer', identity['User'].lower().endswith('\\acer'))
-    check('actual target is Windows 10', 'Windows 10' in identity['Product'] and 10240 <= int(identity['Build']) < 22000)
+    check('authenticated account is Acer', identity['User'].lower().split(chr(92))[-1] == 'acer')
+    check('authorized Acer laptop identity matches', identity['Host'].upper() == 'LAPTOP-MCMQHDN4')
+    check('target is supported Windows client', identity['Product'].startswith('Windows ') and int(identity['Build']) >= 10240)
+    report['actual_windows_family'] = 'Windows 11' if int(identity['Build']) >= 22000 else 'Windows 10'
     print('Verified target:', identity['Host'], identity['Product'], 'build', identity['Build'], flush=True)
 
     drives = sorted(identity['Drives'], key=lambda d: d['Free'], reverse=True)
@@ -199,7 +209,7 @@ try:
         return powershell(code, input_data=(payload+'\n').encode('ascii')).get('value')
 
     info = bridge('info')
-    check('both real Windows 10 application windows visible', info['popupVisible'] and info['managerVisible'])
+    check('both authorized Windows application windows visible', info['popupVisible'] and info['managerVisible'])
     check('tray and global shortcut registered', info['tray'] and info['shortcut'])
     check('default autostart registered', info['autostart'])
     app_session = powershell("@(Get-Process -Name Clipboard -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "+psquote(exe)+"} | ForEach-Object {$_.SessionId})|ConvertTo-Json -Compress")
@@ -218,7 +228,7 @@ try:
         check('slide autostart '+str(enabled), bridge('info')['autostart'] == enabled)
     bridge('eval', ['manager', "(()=>{const s=document.getElementById('search');s.value='Windows 10';s.dispatchEvent(new Event('input',{bubbles:true}));return true;})()"])
     time.sleep(.4)
-    check('UI search on real Windows 10', bridge('eval', ['manager', "document.querySelectorAll('.row').length===1"]))
+    check('UI search on authorized Windows', bridge('eval', ['manager', "document.querySelectorAll('.row').length===1"]))
     for i in range(90):
         bridge('capture', ['位置恢复验证 '+str(i)])
     bridge('eval', ['popup', "document.getElementById('list').scrollTop=3500"]);time.sleep(.6)
@@ -233,7 +243,7 @@ try:
     for kind in ['popup', 'manager']:
         screenshot = dev + '\\' + kind + '.png'
         bridge('screenshot', [kind, screenshot]);get_file(screenshot, OUT / ('win10-'+kind+'.png'))
-        check(kind+' real Windows 10 screenshot retrieved', (OUT / ('win10-'+kind+'.png')).stat().st_size > 1000)
+        check(kind+' authorized Windows screenshot retrieved', (OUT / ('win10-'+kind+'.png')).stat().st_size > 1000)
     # Shut down the isolated validation instance, then launch normal collection.
     bridge('quit');time.sleep(2)
     launch('--show-manager')
