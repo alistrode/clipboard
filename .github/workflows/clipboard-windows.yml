@@ -1,0 +1,48 @@
+name: Clipboard Windows desktop acceptance
+on:
+  push:
+    branches: [projects/clipboard]
+    paths:
+      - '.github/workflows/clipboard-windows.yml'
+      - 'tests/windows-acceptance.py'
+      - 'src/**'
+      - 'deliverables/windows.part*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/
+            !/deliverables/
+            /deliverables/windows.part*
+            /deliverables/manifest.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Record actual OS and run database tests
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force acceptance | Out-Null
+          Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture | ConvertTo-Json | Set-Content acceptance/os.json
+          node --test tests/store.test.cjs
+      - name: Run repository Windows package, registry, clipboard and screenshot checks
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python tests/windows-acceptance.py
+      - name: Save Windows evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipboard-windows-${{ github.run_id }}
+          path: acceptance/
+          retention-days: 14
+          if-no-files-found: error
