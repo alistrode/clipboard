@@ -1,0 +1,55 @@
+name: Clipboard real Windows 10 remote acceptance
+on:
+  push:
+    branches: [projects/clipboard]
+    paths: ['.github/workflows/clipboard-win10-remote.yml', 'tests/win10-remote.py']
+permissions:
+  contents: read
+concurrency:
+  group: clipboard-real-win10
+  cancel-in-progress: false
+jobs:
+  remote:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/docs/
+            !/deliverables/
+            /deliverables/windows.part*
+            /deliverables/manifest.json
+      - name: Create ephemeral public key for encrypted connection handoff
+        shell: bash
+        run: |
+          mkdir -p acceptance
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out "$RUNNER_TEMP/clipboard-relay.pem" 2>/dev/null
+          chmod 600 "$RUNNER_TEMP/clipboard-relay.pem"
+          openssl pkey -in "$RUNNER_TEMP/clipboard-relay.pem" -pubout -out acceptance/relay-public.pem
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clipboard-remote-public-key-${{ github.run_id }}
+          path: acceptance/relay-public.pem
+          retention-days: 1
+      - name: Connect to authorized Windows 10 and run clipboard project
+        shell: bash
+        run: python3 tests/win10-remote.py
+      - name: Save remote evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clipboard-real-win10-${{ github.run_id }}
+          path: acceptance/
+          retention-days: 7
+      - name: Remove temporary credentials
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for name in ['clipboard-relay.pem', 'clipboard-identity', 'connection.bin']:
+              (Path(os.environ['RUNNER_TEMP']) / name).unlink(missing_ok=True)
+          PY
