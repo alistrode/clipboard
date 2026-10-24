@@ -6,6 +6,7 @@ on:
       - '.github/workflows/clipboard-windows.yml'
       - 'tests/windows-acceptance.py'
       - 'src/**'
+      - 'scripts/**'
       - 'deliverables/windows.part*'
   workflow_dispatch:
 permissions:

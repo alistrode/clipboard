@@ -13,7 +13,7 @@ if (-not (Test-Path $exe)) {
         }
     } finally { $output.Dispose() }
     if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a') {
-        throw '运行包校验失败，请重新下载完整文件。'
+        throw 'Runtime archive SHA-256 mismatch. Download the complete package again.'
     }
     Expand-Archive -Path $archive -DestinationPath $runtime -Force
     Remove-Item $archive
