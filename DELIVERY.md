@@ -29,3 +29,5 @@ fae726ba5a02e5af15d38adc578c08e01ca7b7b904f7518bda907a6f7ba83128
 ## 包含与排除
 
 运行包包含应用、运行时、必要库、资源及许可证；未包含用户数据库、凭据、原始运行日志、开发缓存和 node_modules。运行包以分块形式存储以符合 GitHub 单文件限制，启动脚本自动恢复，无须人工拼接或补丁。
+
+2026-10-24 补充：GitHub Windows Server 2022 运行验收已通过，根目录启动器的 PowerShell 兼容问题已修复。记录及截图见 docs/WINDOWS-ACCEPTANCE.md；Windows 10 实机仍未验收。

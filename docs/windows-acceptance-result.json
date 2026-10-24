@@ -1,0 +1,30 @@
+{
+  "passed": [
+    "part hash windows.part001",
+    "part hash windows.part002",
+    "part hash windows.part003",
+    "part hash windows.part004",
+    "part hash windows.part005",
+    "part hash windows.part006",
+    "original Windows archive SHA-256",
+    "tray object created",
+    "global shortcut registered",
+    "first launch registers Windows autostart",
+    "both desktop windows initialized",
+    "native Windows clipboard write/read",
+    "deduplication and newest ordering",
+    "long text persisted without truncation",
+    "UI full text search",
+    "Windows autostart registry slide False",
+    "Windows autostart registry slide True",
+    "AddClipboardFormatListener receives actual Windows clipboard change",
+    "scroll anchor persisted",
+    "background insertion preserves anchor",
+    "popup actual screenshot captured",
+    "manager actual screenshot captured",
+    "process restart preserves long clipboard text",
+    "process restart preserves UI state"
+  ],
+  "count": 24,
+  "scope": "GitHub-hosted Windows Server 2022; NOT Windows 10 desktop or reboot verification"
+}
