@@ -271,7 +271,7 @@ try:
     report['normal_processes'] = normal
     report['count'] = len(report['passed'])
     report['status'] = 'passed'
-    print('Real Windows 10 deployment and screenshots completed', flush=True)
+    print('Authorized Acer Windows deployment and screenshots completed', flush=True)
 except Exception as exc:
     report['status'] = 'failed'
     report['error'] = str(exc)

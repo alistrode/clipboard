@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "checks": [
+    "authenticated account is Acer",
+    "authorized Acer laptop identity matches",
+    "target is supported Windows client",
+    "writable xxm workspace selected",
+    "remote Windows archive hash",
+    "both authorized Windows application windows visible",
+    "tray and global shortcut registered",
+    "default autostart registered",
+    "application runs in logged-in desktop session",
+    "exact deduplication",
+    "long clipboard text persisted",
+    "slide autostart False",
+    "slide autostart True",
+    "UI search on authorized Windows",
+    "scroll position saved",
+    "new records preserve scroll anchor",
+    "popup authorized Windows screenshot retrieved",
+    "manager authorized Windows screenshot retrieved",
+    "normal project process remains running"
+  ],
+  "count": 19,
+  "actual_windows_family": "Windows 11",
+  "os_product_registry_label": "Windows 10 Home China",
+  "os_build": "26200",
+  "session": 1,
+  "project": "E:\\xxm\\clipboard",
+  "executable": "E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe",
+  "normal_processes": [
+    {
+      "Id": 2904,
+      "SessionId": 1,
+      "MainWindowHandle": 0
+    },
+    {
+      "Id": 10048,
+      "SessionId": 1,
+      "MainWindowHandle": 8061456
+    },
+    {
+      "Id": 12472,
+      "SessionId": 1,
+      "MainWindowHandle": 0
+    },
+    {
+      "Id": 18804,
+      "SessionId": 1,
+      "MainWindowHandle": 0
+    },
+    {
+      "Id": 30356,
+      "SessionId": 1,
+      "MainWindowHandle": 0
+    }
+  ],
+  "package_sha256": "40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a",
+  "package_reused": true,
+  "run_url": "https://github.com/trlstdin/rororororo/actions/runs/40084568295",
+  "note": "Registry legacy label says Windows 10; build 26200 identifies Windows 11. Screenshots are the isolated validation windows; application then launched in normal collection mode."
+}

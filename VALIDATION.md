@@ -21,3 +21,5 @@
 测试模式的回环接口只在显式 --test-mode 启用，日常启动脚本不启用。
 
 GitHub Windows 补充验收：2026-10-24，运行 40079722838 通过。采用相同 Windows 运行包；根目录启动器已修复 PowerShell 兼容问题。该结论仅限实际测试的 Windows Server 2022，不能等同 Windows 10 实机通过。
+
+指定 Acer 电脑补充验收：2026-10-24 通过，真实系统 build 26200（Windows 11），不是 Win10。19 项检查、实际截图和正常采集进程确认见 docs/ACER-NATIVE-ACCEPTANCE.md。
