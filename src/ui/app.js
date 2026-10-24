@@ -11,8 +11,8 @@ function error(e){$('error').textContent=e?.message||String(e);$('error').hidden
 function clearError(){$('error').hidden=true;}
 function shortcutText(s){return clipHotkey.display(s);}
 function dateText(n){const d=new Date(n),now=new Date();const time=d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});const day=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();return (day===today?'今天':today-day===86400000?'昨天':d.toLocaleDateString('zh-CN'))+' '+time;}
-function getAnchor(){const index=Math.floor(viewport.scrollTop/rowHeight);const r=rows[index-start];return r?{id:r.id,offset:viewport.scrollTop%rowHeight}:knownAnchor;}
-function save(){clearTimeout(saveTimer);const anchor=getAnchor();if(anchor)knownAnchor=anchor;const state={q:query,selected,anchor,scrollTop:viewport.scrollTop};saveTimer=setTimeout(()=>clip.state(kind,state).catch(error),100);}
+function getAnchor(){const index=Math.floor(viewport.scrollTop/rowHeight);const r=rows[index-start];return r?{id:r.id,offset:viewport.scrollTop%rowHeight}:null;}
+function save(){clearTimeout(saveTimer);const anchor=getAnchor();if(!anchor&&total>0)return;if(anchor)knownAnchor=anchor;const state={q:query,selected,anchor,scrollTop:viewport.scrollTop};saveTimer=setTimeout(()=>clip.state(kind,state).catch(error),100);}
 async function load({anchor=null,reset=false}={}){
   const rev=++revision;loading=true;
   try {
@@ -24,9 +24,15 @@ async function load({anchor=null,reset=false}={}){
     total=result.total;rows=result.rows;start=target;
     if(!selected&&rows.length)selected=rows[0].id;
     $('spacer').style.height=total*rowHeight+'px';
+    if(!anchor&&!reset)y=viewport.scrollTop;
     viewport.scrollTop=Math.min(y,Math.max(0,total*rowHeight-viewport.clientHeight));
     render();save();
-  }catch(e){error(e);}finally{if(rev===revision)loading=false;}
+  }catch(e){error(e);}finally{if(rev===revision){
+    loading=false;
+    const top=Math.floor(viewport.scrollTop/rowHeight),end=Math.min(total,top+Math.ceil(viewport.clientHeight/rowHeight));
+    if(top<start||end>start+rows.length){load();}
+    else if(reloadPending){reloadPending=false;load({anchor:getAnchor()});}
+  }}
 }
 function render(){
   const fragment=document.createDocumentFragment();
@@ -97,7 +103,7 @@ $('shortcut').addEventListener('keyup',async e=>{
 clip.on('shortcut-captured',async value=>{if(document.activeElement!==$('shortcut'))return;pendingShortcut=null;try{await recordReady;await clip.shortcut(value);clearError();}catch(e){error(e);}});
 clip.on('shortcut-changed',value=>{$('shortcut').value=shortcutText(value);if(!manager)$('foot-left').textContent=shortcutText(value);});
 clip.on('changed',()=>{if(loading){reloadPending=true;return;}const anchor=getAnchor();load({anchor}).then(()=>{save();if(reloadPending){reloadPending=false;load({anchor:getAnchor()});}});});
-clip.on('shown',()=>{load({anchor:getAnchor()});});
+clip.on('shown',()=>{load({anchor:getAnchor()||knownAnchor});});
 clip.on('detail',showDetail);clip.on('status',s=>{if(s.error)error(s.error);else clearError();});
 async function init(){
   try{

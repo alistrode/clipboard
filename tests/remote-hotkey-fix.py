@@ -101,7 +101,7 @@ try:
     profile=ntpath.join(dev,'profile')
     endpoint=ntpath.join(profile,'test-endpoint.json')
     task='ClipboardHotkeyFix-'+os.environ['GITHUB_RUN_ID']
-    files=['src/main.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/hotkey.js','package.json']
+    files=['src/main.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/style.css','src/ui/hotkey.js','package.json']
     from zipfile import ZipFile,ZIP_DEFLATED
     patch=TMP/'hotkey-patch.zip'
     with ZipFile(patch,'w',compression=ZIP_DEFLATED,compresslevel=1) as z:
@@ -141,11 +141,11 @@ try:
     [pscustomobject]@{Backup=$backup;Databases=$data;Version=([IO.File]::ReadAllText((Join-Path $app 'package.json'))|ConvertFrom-Json).version}|ConvertTo-Json -Compress
     """.replace('$app=APP;', '$app='+psquote(app)+';').replace('EXE',psquote(exe)).replace('PATCH',psquote(remote_patch)).replace('DEV',psquote(dev)).replace('HASH',psquote(patch_hash)).replace('BACKUPNAME',psquote('before-hotkey-'+os.environ['GITHUB_RUN_ID'])).replace('BACKUP',psquote(r'E:\xxm\clipboard\backups\hotkey-before-'+os.environ['GITHUB_RUN_ID']+'.zip'))
     patched=powershell(code)
-    check('version 1.0.2 installed with source and history backups',patched['Version']=='1.0.2')
+    check('version 1.0.3 installed with source and history backups',patched['Version']=='1.0.3')
     report['backup']=patched['Backup']
     # Read history counts only, never clipboard contents; seed a separate test profile without altering autostart.
     count_script=TMP/'hotkey-count.cjs'
-    count_script.write_text("const fs=require('node:fs');const {DatabaseSync}=require('node:sqlite');let r={count:0,shortcut:'CommandOrControl+Shift+V'};if(fs.existsSync(process.argv[2])){let d=new DatabaseSync(process.argv[2],{readOnly:!process.argv[3]});r.count=d.prepare('select count(*) n from entries').get().n;let s=d.prepare(\"select value from settings where key='shortcut'\").get();if(s)r.shortcut=JSON.parse(s.value);if(process.argv[3])d.prepare(\"INSERT INTO settings(key,value) VALUES('shortcut',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value\").run(JSON.stringify('Super+V'));d.close();}if(process.argv[3]){const {Store}=require(process.argv[4]);let s=new Store(process.argv[3]);s.setting('initialized',true);s.setting('shortcut','Super+V');s.close();}console.log(JSON.stringify(r));",encoding='ascii')
+    count_script.write_text("const fs=require('node:fs');const {DatabaseSync}=require('node:sqlite');let r={count:0,shortcut:'CommandOrControl+Shift+V'};if(fs.existsSync(process.argv[2])){let d=new DatabaseSync(process.argv[2],{readOnly:!process.argv[3]});r.count=d.prepare('select count(*) n from entries').get().n;let s=d.prepare(\"select value from settings where key='shortcut'\").get();if(s)r.shortcut=JSON.parse(s.value);if(process.argv[3])d.prepare(\"INSERT INTO settings(key,value) VALUES('shortcut',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value\").run(JSON.stringify('Super+V'));d.close();}if(process.argv[3]){const {Store}=require(process.argv[4]);let s=new Store(process.argv[3]);s.setting('initialized',true);s.setting('shortcut','Super+V');for(let i=0;i<320;i++)s.capture('Preview '+i+' '+('long_unbroken_text_'.repeat(35))+'\\n'+('line\\n'.repeat(12)));s.close();}console.log(JSON.stringify(r));",encoding='ascii')
     remote_count=ntpath.join(dev,'count.cjs');put_file(count_script,remote_count)
     databases=patched['Databases'];databases=databases if isinstance(databases,list) else ([databases] if databases else [])
     db=databases[0] if databases else ntpath.join(dev,'nonexistent.sqlite')
@@ -181,6 +181,25 @@ try:
         bridge('eval',['popup',"clip.action('hide')"])
         powershell(send)
         check('actual Win+V summons our clipboard '+str(i+1),bridge('info')['popupVisible'])
+    # Synthetic records stay in the isolated test database.
+    dimensions=bridge('eval',['popup',"JSON.stringify([...document.querySelectorAll('.card')].slice(0,6).map(c=>{const s=c.querySelector('.snippet'),a=c.getBoundingClientRect(),b=s.getBoundingClientRect();return {inside:b.left>=a.left&&b.right<=a.right&&b.bottom<=a.bottom&&b.top>=a.top,lines:b.height<=48,width:c.scrollWidth<=c.clientWidth};}))"])
+    check('long previews stay inside cards',all(x['inside'] and x['lines'] and x['width'] for x in json.loads(dimensions)))
+    for view in ['popup','manager']:
+        bridge('eval',[view,"(async()=>{const v=document.getElementById('list');v.scrollTop=2300;v.dispatchEvent(new Event('scroll'));await new Promise(r=>setTimeout(r,10));v.scrollTop=9800;v.dispatchEvent(new Event('scroll'));await new Promise(r=>setTimeout(r,1600));return true;})()"])
+        state=bridge('eval',[view,"clip.state('"+view+"')"])
+        check(view+' fast scrolling saves visible anchor',bool(state and state.get('anchor') and state['scrollTop']>9000))
+        visible=bridge('eval',[view,"(()=>{const v=document.getElementById('list').getBoundingClientRect();return [...document.querySelectorAll('.row')].some(e=>{const r=e.getBoundingClientRect();return r.top<=v.top+1&&r.bottom>v.top;});})()"])
+        check(view+' viewport has no unloaded blank gap',visible)
+        bridge('eval',[view,"clip.action('hide')"])
+        bridge('show')
+        time.sleep(1.5)
+        restored=bridge('eval',[view,"clip.state('"+view+"')"])
+        check(view+' hide and reopen preserves position',restored['anchor']==state['anchor'])
+    before_anchor=bridge('eval',['popup',"clip.state('popup')"])
+    bridge('capture',['new entry while browsing older history'])
+    time.sleep(1.5)
+    after_anchor=bridge('eval',['popup',"clip.state('popup')"])
+    check('new clipboard entry preserves browsing anchor',before_anchor['anchor']==after_anchor['anchor'])
     bridge('screenshot',['popup',ntpath.join(dev,'winv-popup.png')]);get_file(ntpath.join(dev,'winv-popup.png'),OUT/'winv-popup.png')
     bridge('screenshot',['manager',ntpath.join(dev,'hotkey-manager.png')]);get_file(ntpath.join(dev,'hotkey-manager.png'),OUT/'hotkey-manager.png')
     bridge('quit');time.sleep(1)
@@ -190,7 +209,7 @@ try:
     check('Win+V is the persisted normal shortcut',after['shortcut']=='Super+V')
     normal=powershell("@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq "+psquote(exe)+" -and $_.MainWindowHandle -ne 0}|Select-Object Id,SessionId,MainWindowHandle)|ConvertTo-Json -Compress")
     check('updated application normal window remains running',bool(normal))
-    report.update({'status':'passed','version':'1.0.2','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
+    report.update({'status':'passed','version':'1.0.3','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
 except Exception as exc:
     report.update({'status':'failed','error':str(exc)})
     raise

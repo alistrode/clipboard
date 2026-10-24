@@ -4,3 +4,7 @@
 #list,#spacer,#rows,.row{overflow-anchor:none}
 
 :root{font-size:16px}.row{height:84px}.card{height:76px}.manager .row{height:44px}.manager .card{height:43px}.manager .time{font-size:15px}
+
+/* Keep previews inside the fixed virtual row; full text remains in storage. */
+.card{min-width:0;overflow:hidden}.snippet{min-width:0;max-width:100%;flex:1;overflow-wrap:anywhere;line-height:24px;max-height:48px;-webkit-line-clamp:2}
+.manager .snippet{max-height:24px}.manager .card{padding-right:0}
