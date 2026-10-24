@@ -73,7 +73,15 @@ try:
         '-File', str(ROOT / 'scripts/start-windows.ps1'),
         '--test-mode', '--show-manager', '--data-dir=' + str(PROFILE),
     ], cwd=ROOT, stdout=log, stderr=err)
-    wait_for(lambda: (PROFILE / 'test-endpoint.json').exists(), 90)
+    try:
+        wait_for(lambda: (PROFILE / 'test-endpoint.json').exists(), 90)
+    except Exception:
+        for stream in [log, err]:
+            stream.flush()
+        print('Launcher exit code:', process.poll(), flush=True)
+        print('Launcher stdout:', (OUT / 'app-stdout.log').read_text(encoding='utf8', errors='replace'), flush=True)
+        print('Launcher stderr:', (OUT / 'app-stderr.log').read_text(encoding='utf8', errors='replace'), flush=True)
+        raise
     info = call('info')
     (OUT / 'runtime.json').write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding='utf8')
     check('tray object created', info['tray'])

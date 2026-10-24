@@ -38,6 +38,14 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
         run: python tests/windows-acceptance.py
+      - name: Show diagnostic logs
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem acceptance -File | Where-Object { $_.Name -match '^(app-|listener-)|^(failure|result|os)\.json$' } | ForEach-Object {
+            Write-Host "--- $($_.Name) ---"
+            Get-Content $_.FullName -ErrorAction Continue
+          }
       - name: Save Windows evidence
         if: always()
         uses: actions/upload-artifact@v4
