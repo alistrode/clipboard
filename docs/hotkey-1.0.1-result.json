@@ -1,0 +1,29 @@
+{
+  "passed": [
+    "authorized Acer laptop",
+    "version 1.0.1 installed with source and history backups",
+    "unrestricted shortcut A",
+    "unrestricted shortcut F8",
+    "unrestricted shortcut Shift+F8",
+    "unrestricted shortcut Super+Shift+F8",
+    "unrestricted shortcut Escape",
+    "actual Windows F8 summons clipboard window",
+    "original clipboard history preserved",
+    "original shortcut preference preserved",
+    "updated application normal window remains running"
+  ],
+  "scope": "authorized Acer Windows computer; actual OS build recorded",
+  "backup": "E:\\xxm\\clipboard\\backups\\hotkey-before-40091443746.zip",
+  "history_before": 1,
+  "history_after": 1,
+  "status": "passed",
+  "version": "1.0.1",
+  "normal_processes": {
+    "Id": 16928,
+    "SessionId": 1,
+    "MainWindowHandle": 7671616
+  },
+  "executable": "E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe",
+  "count": 11,
+  "run_url": "https://github.com/trlstdin/rororororo/actions/runs/40091443746"
+}
