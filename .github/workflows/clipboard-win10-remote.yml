@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: clipboard-real-win10
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   remote:
     runs-on: ubuntu-22.04

@@ -30,21 +30,21 @@ def run(argv, **kwargs):
     return subprocess.run(argv, check=True, capture_output=True, **kwargs)
 
 
-def ssh(command, timeout=180):
+def ssh(command, timeout=180, input_data=None):
     argv = ['ssh', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20',
             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4',
             '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=' + str(TMP / 'clipboard-known-hosts'),
             '-o', 'HostKeyAlias=' + HOST, '-i', str(KEY), '-p', str(ENDPOINT_PORT), USER + '@127.0.0.1', command]
-    p = subprocess.run(argv, capture_output=True, timeout=timeout)
+    p = subprocess.run(argv, capture_output=True, timeout=timeout, input=input_data)
     if p.returncode:
         raise RuntimeError('SSH failed: ' + p.stderr.decode('utf8', errors='replace')[-2500:])
     return p.stdout
 
 
-def powershell(code, timeout=180):
+def powershell(code, timeout=180, input_data=None):
     prefix = "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $ErrorActionPreference='Stop'; "
     encoded = base64.b64encode((prefix + code).encode('utf-16le')).decode()
-    data = ssh('powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + encoded, timeout)
+    data = ssh('powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + encoded, timeout, input_data)
     text = data.decode('utf-8-sig', errors='replace').strip()
     return json.loads(text) if text else None
 
@@ -67,7 +67,8 @@ try:
     deadline = time.monotonic() + 900
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(HANDOFF, timeout=15) as response:
+            handoff = HANDOFF.replace('connection.bin', 'connection-' + os.environ['GITHUB_RUN_ID'] + '.bin')
+            with urllib.request.urlopen(handoff, timeout=15) as response:
                 encrypted = response.read()
             if len(encrypted) == 512:
                 (TMP / 'connection.bin').write_bytes(encrypted)
@@ -191,8 +192,8 @@ try:
 
     def bridge(command, args=None):
         payload = json.dumps({'command': command, 'args': args or []}, ensure_ascii=True)
-        code = "$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$h=@{Authorization=('Bearer '+$e.token)}; $r=Invoke-RestMethod -Uri ('http://127.0.0.1:'+$e.port) -Method Post -Headers $h -ContentType 'application/json' -Body "+psquote(payload)+"; $r|ConvertTo-Json -Depth 12 -Compress"
-        return powershell(code).get('value')
+        code = "$payload=[Console]::In.ReadToEnd();$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$h=@{Authorization=('Bearer '+$e.token)}; $r=Invoke-RestMethod -Uri ('http://127.0.0.1:'+$e.port) -Method Post -Headers $h -ContentType 'application/json' -Body $payload; $r|ConvertTo-Json -Depth 12 -Compress"
+        return powershell(code, input_data=payload.encode('ascii')).get('value')
 
     info = bridge('info')
     check('both real Windows 10 application windows visible', info['popupVisible'] and info['managerVisible'])
