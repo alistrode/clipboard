@@ -28,3 +28,5 @@ Node.js 24+；`npm ci` 后运行 `npm run dev` 或 `Start-Dev.cmd` / `./start-de
 `--background` 仅托盘启动；`--show-manager` 同时打开管理；`--data-dir=/absolute/path` 可隔离数据库。`--test-mode` 仅供自动验收，启用带随机令牌的回环测试接口，正常运行不开启。不要在日常环境使用该模式。
 
 测试：`npm test`。平台实际验收范围见 VALIDATION.md。
+
+Windows 1.0.2：Win+V 由本程序用户态键盘服务接管，只处理 Win+V，退出本程序后释放。录入时单独按 Win/Ctrl/Alt/Shift 不会保存残缺的修饰键；完整 Win+V 可直接录入。

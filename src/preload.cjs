@@ -7,5 +7,5 @@ contextBridge.exposeInMainWorld('clip',{
   recordShortcut:active=>ipcRenderer.invoke('shortcut-recording',active),
   remove:ids=>ipcRenderer.invoke('remove',ids),action:name=>ipcRenderer.invoke('action',name),
   menu:id=>ipcRenderer.send('menu',id),
-  on:(type,fn)=>{if(['changed','status','shown','detail'].includes(type))ipcRenderer.on(type,(_e,value)=>fn(value));}
+  on:(type,fn)=>{if(['changed','status','shown','detail','shortcut-captured','shortcut-changed'].includes(type))ipcRenderer.on(type,(_e,value)=>fn(value));}
 });

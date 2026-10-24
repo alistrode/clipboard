@@ -86,15 +86,16 @@ $('shortcut').title='按任意键或组合键，松开后自动保存；点击�
 $('shortcut').addEventListener('focus',()=>{recordReady=clip.recordShortcut(true).catch(error);});
 $('shortcut').addEventListener('blur',()=>{pendingShortcut=null;clip.recordShortcut(false).catch(error);});
 window.addEventListener('blur',()=>{if(document.activeElement===$('shortcut'))$('shortcut').blur();});
-$('shortcut').addEventListener('keydown',e=>{e.preventDefault();e.stopPropagation();if(!e.repeat)pendingShortcut={value:clipHotkey.accelerator(e),key:e.key};});
+$('shortcut').addEventListener('keydown',e=>{e.preventDefault();e.stopPropagation();if(!e.repeat&&!clipHotkey.isModifier(e.key))pendingShortcut={value:clipHotkey.accelerator(e),key:e.key};});
 $('shortcut').addEventListener('keyup',async e=>{
   e.preventDefault();e.stopPropagation();
-  if(!pendingShortcut)return;
-  if(!clipHotkey.isModifier(pendingShortcut.key)&&clipHotkey.isModifier(e.key))return;
+  if(!pendingShortcut||clipHotkey.isModifier(e.key))return;
   const candidate=pendingShortcut;pendingShortcut=null;
   try{await recordReady;const value=await clip.shortcut(candidate.value);e.target.value=shortcutText(value);if(!manager)$('foot-left').textContent=shortcutText(value);clearError();}
   catch(e){error(e);const s=await clip.settings();$('shortcut').value=shortcutText(s.shortcut);}
 });
+clip.on('shortcut-captured',async value=>{if(document.activeElement!==$('shortcut'))return;pendingShortcut=null;try{await recordReady;await clip.shortcut(value);clearError();}catch(e){error(e);}});
+clip.on('shortcut-changed',value=>{$('shortcut').value=shortcutText(value);if(!manager)$('foot-left').textContent=shortcutText(value);});
 clip.on('changed',()=>{if(loading){reloadPending=true;return;}const anchor=getAnchor();load({anchor}).then(()=>{save();if(reloadPending){reloadPending=false;load({anchor:getAnchor()});}});});
 clip.on('shown',()=>{load({anchor:getAnchor()});});
 clip.on('detail',showDetail);clip.on('status',s=>{if(s.error)error(s.error);else clearError();});

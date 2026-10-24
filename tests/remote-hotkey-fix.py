@@ -101,7 +101,7 @@ try:
     profile=ntpath.join(dev,'profile')
     endpoint=ntpath.join(profile,'test-endpoint.json')
     task='ClipboardHotkeyFix-'+os.environ['GITHUB_RUN_ID']
-    files=['src/main.cjs','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/hotkey.js','package.json']
+    files=['src/main.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/hotkey.js','package.json']
     from zipfile import ZipFile,ZIP_DEFLATED
     patch=TMP/'hotkey-patch.zip'
     with ZipFile(patch,'w',compression=ZIP_DEFLATED,compresslevel=1) as z:
@@ -122,6 +122,8 @@ try:
     [Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')|Out-Null
     $backup=BACKUP
     [IO.Compression.ZipFile]::CreateFromDirectory($app,$backup)
+    $oldScript=[IO.File]::ReadAllText((Join-Path $app 'src\clipboard-listener.ps1'));$oldEncoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($oldScript))
+    Get-CimInstance -Query ("SELECT ProcessId FROM Win32_Process WHERE Name='powershell.exe' AND CommandLine LIKE '%"+$oldEncoded+"%'") -ErrorAction SilentlyContinue | ForEach-Object {try{Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop}catch{}}
     try{$s=New-Object -ComObject 'Schedule.Service';$s.Connect();$s.GetFolder('\').GetTask('ClipboardLocalValidation-40083184338').Stop(0)}catch{}
     Get-Process -Name Clipboard -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq $exe} | ForEach-Object {$_.Kill()}
     Start-Sleep -Milliseconds 700
@@ -139,11 +141,11 @@ try:
     [pscustomobject]@{Backup=$backup;Databases=$data;Version=([IO.File]::ReadAllText((Join-Path $app 'package.json'))|ConvertFrom-Json).version}|ConvertTo-Json -Compress
     """.replace('$app=APP;', '$app='+psquote(app)+';').replace('EXE',psquote(exe)).replace('PATCH',psquote(remote_patch)).replace('DEV',psquote(dev)).replace('HASH',psquote(patch_hash)).replace('BACKUPNAME',psquote('before-hotkey-'+os.environ['GITHUB_RUN_ID'])).replace('BACKUP',psquote(r'E:\xxm\clipboard\backups\hotkey-before-'+os.environ['GITHUB_RUN_ID']+'.zip'))
     patched=powershell(code)
-    check('version 1.0.1 installed with source and history backups',patched['Version']=='1.0.1')
+    check('version 1.0.2 installed with source and history backups',patched['Version']=='1.0.2')
     report['backup']=patched['Backup']
     # Read history counts only, never clipboard contents; seed a separate test profile without altering autostart.
     count_script=TMP/'hotkey-count.cjs'
-    count_script.write_text("const fs=require('node:fs');const {DatabaseSync}=require('node:sqlite');let r={count:0,shortcut:'CommandOrControl+Shift+V'};if(fs.existsSync(process.argv[2])){let d=new DatabaseSync(process.argv[2],{readOnly:true});r.count=d.prepare('select count(*) n from entries').get().n;let s=d.prepare(\"select value from settings where key='shortcut'\").get();if(s)r.shortcut=JSON.parse(s.value);d.close();}if(process.argv[3]){const {Store}=require(process.argv[4]);let s=new Store(process.argv[3]);s.setting('initialized',true);s.setting('shortcut',r.shortcut);s.close();}console.log(JSON.stringify(r));",encoding='ascii')
+    count_script.write_text("const fs=require('node:fs');const {DatabaseSync}=require('node:sqlite');let r={count:0,shortcut:'CommandOrControl+Shift+V'};if(fs.existsSync(process.argv[2])){let d=new DatabaseSync(process.argv[2],{readOnly:!process.argv[3]});r.count=d.prepare('select count(*) n from entries').get().n;let s=d.prepare(\"select value from settings where key='shortcut'\").get();if(s)r.shortcut=JSON.parse(s.value);if(process.argv[3])d.prepare(\"INSERT INTO settings(key,value) VALUES('shortcut',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value\").run(JSON.stringify('Super+V'));d.close();}if(process.argv[3]){const {Store}=require(process.argv[4]);let s=new Store(process.argv[3]);s.setting('initialized',true);s.setting('shortcut','Super+V');s.close();}console.log(JSON.stringify(r));",encoding='ascii')
     remote_count=ntpath.join(dev,'count.cjs');put_file(count_script,remote_count)
     databases=patched['Databases'];databases=databases if isinstance(databases,list) else ([databases] if databases else [])
     db=databases[0] if databases else ntpath.join(dev,'nonexistent.sqlite')
@@ -164,27 +166,31 @@ try:
         payload=json.dumps({'command':command,'args':args or []},ensure_ascii=True)
         code="$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$w=New-Object Net.WebClient;$w.Proxy=$null;$w.Headers['Authorization']='Bearer '+$e.token;$w.Headers['Content-Type']='application/json; charset=utf-8';try{[Text.Encoding]::UTF8.GetString($w.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes("+psquote(payload)+")))}finally{$w.Dispose()}"
         return powershell(code).get('value')
-    for key,flags,expected in [('a',{},'A'),('F8',{},'F8'),('F8',{'shiftKey':True},'Shift+F8'),('F8',{'metaKey':True,'shiftKey':True},'Super+Shift+F8'),('Escape',{},'Escape')]:
-        event=json.dumps({'key':key,'bubbles':True,**flags})
-        bridge('eval',['manager',"document.getElementById('shortcut').focus()"])
-        bridge('eval',['manager',"(()=>{const b=document.getElementById('shortcut');b.dispatchEvent(new KeyboardEvent('keydown',"+event+"));b.dispatchEvent(new KeyboardEvent('keyup',"+event+"));return true;})()"])
-        actual=bridge('eval',['manager',"clip.settings().then(s=>s.shortcut)"])
-        check('unrestricted shortcut '+expected,actual==expected)
-        bridge('eval',['manager',"document.getElementById('shortcut').blur()"])
-    bridge('eval',['manager',"clip.shortcut('F8')"])
-    bridge('eval',['popup',"clip.action('hide')"])
-    powershell("$w=New-Object -ComObject WScript.Shell;$w.SendKeys('{F8}');$true|ConvertTo-Json")
-    check('actual Windows F8 summons clipboard window',bridge('info')['popupVisible'])
-    bridge('screenshot',['manager',ntpath.join(dev,'hotkey-manager.png')])
-    get_file(ntpath.join(dev,'hotkey-manager.png'),OUT/'hotkey-manager.png')
+    info=bridge('info')
+    check('Win+V user-mode takeover ready',info['winVActive'] and info['keyboardReady'])
+    inventory=powershell("@(Get-Process | Where-Object {$_.ProcessName -match 'ditto|copyq|clip|TextInputHost|powertoys'} | Select-Object ProcessName,Id,SessionId)|ConvertTo-Json -Compress")
+    report['clipboard_process_inventory']=inventory
+    bridge('eval',['manager',"document.getElementById('shortcut').focus()"])
+    bridge('eval',['manager',"(()=>{const b=document.getElementById('shortcut');b.dispatchEvent(new KeyboardEvent('keydown',{key:'Meta',metaKey:true,bubbles:true}));b.dispatchEvent(new KeyboardEvent('keyup',{key:'Meta',bubbles:true}));return true;})()"])
+    check('pressing Win alone does not save bare Super',bridge('eval',['manager',"clip.settings().then(s=>s.shortcut)"])=='Super+V')
+    send=r"""Add-Type 'using System; using System.Runtime.InteropServices; public class ClipWinVInput { [DllImport("user32.dll")] public static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h,out uint id); }'; [ClipWinVInput]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x56,0,0,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x56,0,2,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x5B,0,2,[UIntPtr]::Zero); Start-Sleep -Milliseconds 500; $true|ConvertTo-Json"""
+    powershell(send)
+    check('Win+V can be recorded without Super conversion error',bridge('eval',['manager',"document.getElementById('shortcut').value==='Win + V' && document.getElementById('error').hidden"]))
+    bridge('eval',['manager',"document.getElementById('shortcut').blur()"])
+    for i in range(2):
+        bridge('eval',['popup',"clip.action('hide')"])
+        powershell(send)
+        check('actual Win+V summons our clipboard '+str(i+1),bridge('info')['popupVisible'])
+    bridge('screenshot',['popup',ntpath.join(dev,'winv-popup.png')]);get_file(ntpath.join(dev,'winv-popup.png'),OUT/'winv-popup.png')
+    bridge('screenshot',['manager',ntpath.join(dev,'hotkey-manager.png')]);get_file(ntpath.join(dev,'hotkey-manager.png'),OUT/'hotkey-manager.png')
     bridge('quit');time.sleep(1)
     launch('--show-manager');time.sleep(2)
     after=history_info();report['history_after']=after['count']
     check('original clipboard history preserved',after['count']>=before['count'])
-    check('original shortcut preference preserved',after['shortcut']==before['shortcut'])
+    check('Win+V is the persisted normal shortcut',after['shortcut']=='Super+V')
     normal=powershell("@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq "+psquote(exe)+" -and $_.MainWindowHandle -ne 0}|Select-Object Id,SessionId,MainWindowHandle)|ConvertTo-Json -Compress")
     check('updated application normal window remains running',bool(normal))
-    report.update({'status':'passed','version':'1.0.1','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
+    report.update({'status':'passed','version':'1.0.2','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
 except Exception as exc:
     report.update({'status':'failed','error':str(exc)})
     raise

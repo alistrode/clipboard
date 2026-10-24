@@ -9,7 +9,7 @@ test('Shift、Win、Ctrl 保留不同含义，支持混合修饰键',()=>{
  assert.equal(h.accelerator(event('a',{ctrlKey:true})),'Control+A');
  assert.equal(h.accelerator(event('F8',{ctrlKey:true,altKey:true,shiftKey:true,metaKey:true})),'Control+Alt+Super+Shift+F8');
 });
-test('不在前端拒绝单独修饰键，交给系统实际注册',()=>{
+test('修饰键保留组合信息，录入层等待主键',()=>{
  assert.equal(h.accelerator(event('Shift',{shiftKey:true})),'Shift');assert.equal(h.accelerator(event('Meta',{metaKey:true})),'Super');
 });
 test('输入法和标点按键转换为可注册名称',()=>{

@@ -97,6 +97,11 @@ try:
     wait_for(lambda: evaluate('manager', "document.documentElement.dataset.ready === 'true'"))
     wait_for(lambda: evaluate('popup', "document.documentElement.dataset.ready === 'true'"))
     check('both desktop windows initialized', True)
+    old_shortcut = evaluate('manager', "clip.settings().then(s=>s.shortcut)")
+    evaluate('manager', "(()=>{const b=document.getElementById('shortcut');b.focus();b.dispatchEvent(new KeyboardEvent('keydown',{key:'Meta',metaKey:true,bubbles:true}));b.dispatchEvent(new KeyboardEvent('keyup',{key:'Meta',bubbles:true}));return true;})()")
+    time.sleep(.2)
+    check('Win modifier alone is not saved as Super', evaluate('manager', "clip.settings().then(s=>s.shortcut)") == old_shortcut)
+    evaluate('manager', "document.getElementById('shortcut').blur()")
     for key, flags, expected in [('a', {}, 'Control'), ('F8', {}, 'F8'), ('F8', {'shiftKey': True}, 'Shift+F8'), ('F8', {'metaKey': True, 'shiftKey': True}, 'Super+Shift+F8')]:
         if key == 'a':
             expected = 'A'
@@ -108,6 +113,13 @@ try:
         wait_for(lambda: evaluate('manager', "clip.settings().then(s=>s.shortcut)") == expected)
         check('unrestricted shortcut UI ' + expected, True)
         evaluate('manager', "document.getElementById('shortcut').blur()")
+    evaluate('manager', "clip.shortcut('CommandOrControl+Shift+V')")
+    evaluate('manager', "clip.shortcut('Super+V')")
+    check('Win+V native takeover service ready', call('info')['winVActive'] and call('info')['keyboardReady'])
+    evaluate('popup', "clip.action('hide')")
+    subprocess.run(['powershell.exe','-NoProfile','-Command',r'''Add-Type 'using System; using System.Runtime.InteropServices; public class WinVInput { [DllImport("user32.dll")] public static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra); }'; [WinVInput]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x56,0,0,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x56,0,2,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)'''],check=True)
+    wait_for(lambda: call('info')['popupVisible'])
+    check('actual Windows Win+V summons our clipboard', True)
     evaluate('manager', "clip.shortcut('CommandOrControl+Shift+V')")
 
     for value in ['last scroll position', 'npm run dev', 'https://github.com/', 'Windows clipboard text']:

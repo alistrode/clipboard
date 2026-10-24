@@ -10,7 +10,19 @@ if(process.platform==='linux')app.commandLine.appendSwitch('enable-features','Gl
 let popup,manager,tray,quitting=false,worker,ready,autostart,timer,lastObserved=null,lastGeneration=0;
 let fault='';const pending=new Map();let serial=0;let clipboardListener,reading=false,readAgain=false,forceAgain=false,ownCopyValue=null;
 let shortcutRecorder=null;
-async function finishShortcutRecording(sender){if(shortcutRecorder!==sender)return;shortcutRecorder=null;const value=await db('setting','shortcut')||'CommandOrControl+Shift+V';if(!quitting&&!globalShortcut.isRegistered(value)&&!globalShortcut.register(value,showPopup))reportError(new Error('系统未能恢复快捷键：'+value));}
+let winVActive=false,keyboardReady=false,keyboardPromise=null,modeSerial=0,modeAcknowledged=0;const modeWaiters=new Map();
+function ownsWinV(value){const p=value.toLowerCase().split('+').sort();return process.platform==='win32'&&p.length===2&&p.includes('v')&&(p.includes('super')||p.includes('meta')||p.includes('win'));}
+function registeredShortcut(value){return ownsWinV(value)?winVActive&&keyboardReady:globalShortcut.isRegistered(value);}
+function modeFile(){return path.join(app.getPath('userData'),'keyboard-mode.txt');}
+function writeKeyboardMode(wait=false){
+  if(process.platform!=='win32')return Promise.resolve();
+  const sequence=++modeSerial;const file=modeFile();fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file+'.tmp',`${sequence} ${winVActive?1:0} ${shortcutRecorder!==null?1:0}`);fs.renameSync(file+'.tmp',file);
+  if(!wait)return Promise.resolve();
+  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{modeWaiters.delete(sequence);reject(Error('Win+V 接管未得到系统确认'));},4000);modeWaiters.set(sequence,{resolve:()=>{clearTimeout(timer);resolve();},reject});if(modeAcknowledged>=sequence){modeWaiters.delete(sequence);clearTimeout(timer);resolve();}});
+}
+async function registerShortcut(value){if(!ownsWinV(value))return globalShortcut.register(value,showPopup);winVActive=true;try{await startWindowsListener();await writeKeyboardMode(true);return true;}catch(e){winVActive=false;writeKeyboardMode().catch(reportError);throw e;}}
+function unregisterShortcut(value){if(ownsWinV(value)){winVActive=false;writeKeyboardMode().catch(reportError);}else globalShortcut.unregister(value);}
+async function finishShortcutRecording(sender){if(shortcutRecorder!==sender)return;shortcutRecorder=null;const value=await db('setting','shortcut')||'CommandOrControl+Shift+V';if(!quitting&&!registeredShortcut(value)&&!await registerShortcut(value))reportError(new Error('系统未能恢复快捷键：'+value));if(!quitting&&process.platform==='win32'&&keyboardPromise)await writeKeyboardMode(true);}
 const lock=app.requestSingleInstanceLock();if(!lock){app.quit();}else{
 app.on('second-instance',()=>showPopup());
 app.on('window-all-closed',()=>{});
@@ -31,11 +43,11 @@ async function start(){
   if(await db('setting','initialized')!==true){try{autostart.set(true);await db('setting','initialized',true);}catch(e){reportError(e);}}
   installIPC();
   let shortcut=await db('setting','shortcut')||'CommandOrControl+Shift+V';
-  if(!globalShortcut.register(shortcut,showPopup))reportError(new Error('快捷键被占用，请在管理窗口修改'));
+  try{if(!await registerShortcut(shortcut))reportError(new Error('快捷键被占用，请在管理窗口修改'));}catch(e){reportError(e);}
   createTray();
   if(!process.argv.includes('--background'))await showPopup();
   if(process.argv.includes('--show-manager'))await showManager();
-  if(!testing){poll();if(process.platform==='win32')startWindowsListener();}
+  if(!testing){poll();if(process.platform==='win32')startWindowsListener().catch(reportError);}
   if(testing)startTestBridge();
 }
 function createTray(){
@@ -70,17 +82,17 @@ function installIPC(){
   ipcMain.handle('state',(_e,kind,value)=>{if(!['popup','manager'].includes(kind))throw Error('未知窗口');return db('setting','ui-'+kind,value);});
   ipcMain.handle('settings',async()=>({autostart:autostart.get(),shortcut:await db('setting','shortcut')||'CommandOrControl+Shift+V',error:fault,wayland:process.env.XDG_SESSION_TYPE==='wayland'}));
   ipcMain.handle('autostart',async(_e,enabled)=>{if(typeof enabled!=='boolean')throw Error('无效设置');const actual=autostart.set(enabled);await db('setting','autostart',actual);return actual;});
-  ipcMain.handle('shortcut-recording',async(e,active)=>{if(active){shortcutRecorder=e.sender.id;const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';globalShortcut.unregister(old);}else await finishShortcutRecording(e.sender.id);return true;});
+  ipcMain.handle('shortcut-recording',async(e,active)=>{if(active){shortcutRecorder=e.sender.id;const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';unregisterShortcut(old);if(process.platform==='win32'){await startWindowsListener();await writeKeyboardMode(true);}}else await finishShortcutRecording(e.sender.id);return true;});
   ipcMain.handle('shortcut',async(_e,value)=>{
     if(typeof value!=='string'||!value||value.length>100)throw Error('无法识别该按键');
     const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';
     if(old===value&&!shortcutRecorder)return value;
-    try{if(!globalShortcut.register(value,showPopup))throw Error('系统拒绝注册：'+value+'，可能已被系统或其他程序占用');}
+    try{if(!await registerShortcut(value))throw Error('系统拒绝注册：'+value+'，可能已被系统或其他程序占用');}
     catch(e){throw Error('未能保存 '+value+'：'+e.message+'。原快捷键已保留。');}
-    try{await db('setting','shortcut',value);}catch(e){globalShortcut.unregister(value);throw e;}
-    if(old!==value)globalShortcut.unregister(old);
-    if(shortcutRecorder)globalShortcut.unregister(value);
-    fault='';return value;
+    try{await db('setting','shortcut',value);}catch(e){unregisterShortcut(value);throw e;}
+    if(old!==value)unregisterShortcut(old);
+    if(shortcutRecorder)unregisterShortcut(value);
+    fault='';broadcast('shortcut-changed',value);return value;
   });
   ipcMain.handle('copy',async(_e,id)=>{const row=await db('get',id);if(!row)throw Error('记录已删除');ownCopyValue=row.content;await clipboard.writeText(row.content);lastObserved=row.content;lastGeneration++;if(popup&&_e.sender===popup.webContents)popup.hide();return true;});
   ipcMain.handle('remove',async(_e,ids)=>{if(!Array.isArray(ids)||ids.some(id=>!Number.isSafeInteger(id)))throw Error('无效记录');await db('remove',ids);broadcast('changed');return true;});
@@ -106,12 +118,17 @@ async function poll(){
   if(!quitting)timer=setTimeout(poll,650);
 }
 function startWindowsListener(){
+  if(keyboardPromise)return keyboardPromise;
   const {spawn}=require('node:child_process');
   const script=fs.readFileSync(path.join(__dirname,'clipboard-listener.ps1'),'utf8');
-  clipboardListener=spawn('powershell.exe',['-NoProfile','-NonInteractive','-STA','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,stdio:['ignore','pipe','pipe']});
-  clipboardListener.stdout.on('data',()=>captureClipboard(true));
-  clipboardListener.on('error',()=>reportError(new Error('剪贴板通知监听未启动，正在使用定时读取')));
-  clipboardListener.on('exit',()=>{if(!quitting)reportError(new Error('剪贴板通知监听已退出，正在使用定时读取'));});
+  writeKeyboardMode().catch(reportError);
+  let resolveReady,rejectReady;keyboardPromise=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+  const deadline=setTimeout(()=>rejectReady(Error('Win+V 键盘服务启动超时')),15000);
+  clipboardListener=spawn('powershell.exe',['-NoProfile','-NonInteractive','-STA','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,CLIPBOARD_MODE_FILE:modeFile(),CLIPBOARD_PARENT_PID:String(process.pid)}});
+  let buffer='';clipboardListener.stdout.on('data',chunk=>{buffer+=chunk.toString();let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);if(line==='KEYBOARD_READY'){keyboardReady=true;clearTimeout(deadline);resolveReady();}else if(line.startsWith('MODE ')){modeAcknowledged=Number(line.slice(5));for(const [id,w] of modeWaiters)if(id<=modeAcknowledged){modeWaiters.delete(id);w.resolve();}}else if(line==='WINV'){if(shortcutRecorder!==null){for(const w of [popup,manager])if(w&&!w.isDestroyed()&&w.webContents.id===shortcutRecorder)w.webContents.send('shortcut-captured','Super+V');}else if(winVActive)showPopup();}else if(line==='CHANGED'&&!testing)captureClipboard(true);}});
+  clipboardListener.on('error',e=>{clearTimeout(deadline);rejectReady(e);});
+  clipboardListener.on('exit',()=>{keyboardReady=false;clearTimeout(deadline);rejectReady(Error('Windows 键盘服务已退出'));keyboardPromise=null;if(!quitting)reportError(new Error('键盘服务退出，Win+V 接管已释放'));});
+  return keyboardPromise;
 }
 function startTestBridge(){
   // Explicit opt-in only: loopback + random bearer token, never enabled in normal use.
@@ -129,7 +146,7 @@ function startTestBridge(){
       else if(command==='arrange'){popup.setPosition(80,110);manager.setPosition(530,110);value=true;}
       else if(command==='quit'){value=true;setTimeout(()=>app.quit(),100);}
       else if(['list','get','setting','locate'].includes(command))value=await db(command,...args);
-      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:globalShortcut.isRegistered('CommandOrControl+Shift+V')};
+      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:registeredShortcut(await db('setting','shortcut')||'CommandOrControl+Shift+V'),winVActive,keyboardReady};
       else throw Error('Unknown command');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({value}));
     }catch(e){res.statusCode=500;res.end(JSON.stringify({error:e.message}));}
   });
