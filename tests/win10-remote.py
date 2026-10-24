@@ -34,6 +34,7 @@ def run(argv, **kwargs):
 def ssh(command, timeout=180, input_data=None):
     argv = ['ssh', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20',
             '-o', 'ServerAliveInterval=15', '-o', 'ServerAliveCountMax=4',
+            '-o', 'ControlMaster=auto', '-o', 'ControlPersist=120', '-o', 'ControlPath='+str(TMP/'clipboard-master'),
             '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=' + str(TMP / 'clipboard-known-hosts'),
             '-o', 'HostKeyAlias=' + HOST, '-i', str(KEY), '-p', str(ENDPOINT_PORT), USER + '@127.0.0.1', command]
     p = subprocess.run(argv, capture_output=True, timeout=timeout, input=input_data)
@@ -219,7 +220,7 @@ try:
             remote = ntpath.join(dev, 'request.json')
             run(['scp', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(TMP/'clipboard-known-hosts'), '-o', 'HostKeyAlias='+HOST, '-i', str(KEY), '-P', '22022', str(local), USER+'@127.0.0.1:'+remote.replace(chr(92), '/')], timeout=120)
             payload_code = "$payload=[IO.File]::ReadAllText("+psquote(remote)+");"
-        code = payload_code + "$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json; charset=utf-8';try{$bytes=$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes($payload));[Text.Encoding]::UTF8.GetString($bytes)}finally{$wc.Dispose()}"
+        code = payload_code + "$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Proxy=$null;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json; charset=utf-8';try{$bytes=$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes($payload));[Text.Encoding]::UTF8.GetString($bytes)}finally{$wc.Dispose()}"
         return powershell(code).get('value')
 
     info = bridge('info')
@@ -244,7 +245,9 @@ try:
     time.sleep(.4)
     check('UI search on authorized Windows', bridge('eval', ['manager', "document.querySelectorAll('.row').length===1"]))
     batch = json.dumps([{'command':'capture','args':['位置恢复验证 '+str(i)]} for i in range(90)],ensure_ascii=True)
-    batch_code="$requests="+psquote(batch)+"|ConvertFrom-Json;$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json';try{foreach($r in $requests){$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes(($r|ConvertTo-Json -Depth 6 -Compress)))|Out-Null};$true|ConvertTo-Json}finally{$wc.Dispose()}"
+    batch_local=TMP/'batch.json';batch_local.write_text(batch,encoding='ascii');batch_remote=ntpath.join(dev,'batch.json')
+    run(['scp','-F','/dev/null','-o','BatchMode=yes','-o','StrictHostKeyChecking=yes','-o','UserKnownHostsFile='+str(TMP/'clipboard-known-hosts'),'-o','HostKeyAlias='+HOST,'-i',str(KEY),'-P','22022',str(batch_local),USER+'@127.0.0.1:'+batch_remote.replace(chr(92),'/')],timeout=120)
+    batch_code="$requests=[IO.File]::ReadAllText("+psquote(batch_remote)+")|ConvertFrom-Json;$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Proxy=$null;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json';try{foreach($r in $requests){$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes(($r|ConvertTo-Json -Depth 6 -Compress)))|Out-Null};$true|ConvertTo-Json}finally{$wc.Dispose()}"
     powershell(batch_code)
     bridge('eval', ['popup', "document.getElementById('list').scrollTop=3500"]);time.sleep(.6)
     state = bridge('setting', ['ui-popup'])
@@ -275,5 +278,9 @@ except Exception as exc:
     raise
 finally:
     (OUT / 'win10-result.json').write_text(json.dumps(report, ensure_ascii=False, indent=2))
+    try:
+        subprocess.run(['ssh','-S',str(TMP/'clipboard-master'),'-O','exit','-p','22022',USER+'@127.0.0.1'],capture_output=True,timeout=10)
+    except Exception:
+        pass
     if proxy and proxy.poll() is None:
         proxy.terminate()
