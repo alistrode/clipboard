@@ -64,15 +64,18 @@ def get_file(remote, local):
 
 try:
     print('Waiting for RSA-OAEP encrypted connection handoff', flush=True)
-    deadline = time.monotonic() + 900
+    deadline = time.monotonic() + 600
+    attempt = 0
     while time.monotonic() < deadline:
         try:
             handoff = HANDOFF.replace('connection.bin', 'connection-' + os.environ['GITHUB_RUN_ID'] + '.bin')
-            with urllib.request.urlopen(handoff, timeout=15) as response:
-                encrypted = response.read()
-            if len(encrypted) == 512:
-                (TMP / 'connection.bin').write_bytes(encrypted)
+            fetched = subprocess.run(['curl', '-fLsS', '--max-time', '15', handoff, '-o', str(TMP / 'connection.bin')], capture_output=True)
+            size = (TMP / 'connection.bin').stat().st_size if (TMP / 'connection.bin').exists() else 0
+            if fetched.returncode == 0 and size == 512:
                 break
+            attempt += 1
+            if attempt % 10 == 0:
+                print('Encrypted handoff pending; HTTP client exit', fetched.returncode, 'bytes', size, flush=True)
         except Exception:
             pass
         time.sleep(3)
@@ -192,8 +195,8 @@ try:
 
     def bridge(command, args=None):
         payload = json.dumps({'command': command, 'args': args or []}, ensure_ascii=True)
-        code = "$payload=[Console]::In.ReadToEnd();$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$h=@{Authorization=('Bearer '+$e.token)}; $r=Invoke-RestMethod -Uri ('http://127.0.0.1:'+$e.port) -Method Post -Headers $h -ContentType 'application/json' -Body $payload; $r|ConvertTo-Json -Depth 12 -Compress"
-        return powershell(code, input_data=payload.encode('ascii')).get('value')
+        code = "$payload=[Console]::In.ReadLine();$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$h=@{Authorization=('Bearer '+$e.token)}; $r=Invoke-RestMethod -Uri ('http://127.0.0.1:'+$e.port) -Method Post -Headers $h -ContentType 'application/json' -Body $payload; $r|ConvertTo-Json -Depth 12 -Compress"
+        return powershell(code, input_data=(payload+'\n').encode('ascii')).get('value')
 
     info = bridge('info')
     check('both real Windows 10 application windows visible', info['popupVisible'] and info['managerVisible'])
