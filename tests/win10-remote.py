@@ -4,6 +4,7 @@ The private RSA and SSH keys exist only in RUNNER_TEMP, never in artifacts.
 import base64
 import hashlib
 import json
+import ntpath
 import os
 from pathlib import Path
 import subprocess
@@ -130,12 +131,12 @@ try:
         except Exception:
             pass
     check('writable xxm workspace selected', bool(workspace))
-    project = workspace + '\\clipboard'
+    project = ntpath.join(workspace, 'clipboard')
     suffix = str(os.environ.get('GITHUB_RUN_ID', int(time.time())))
-    dev = project + '\\dev\\validation-' + suffix
-    release = project + '\\release\\win10-' + suffix
-    archive = dev + '\\clipboard-windows-x64.zip'
-    profile = dev + '\\profile'
+    dev = ntpath.join(project, 'dev', 'validation-' + suffix)
+    release = ntpath.join(project, 'release', 'win10-' + suffix)
+    archive = ntpath.join(dev, 'clipboard-windows-x64.zip')
+    profile = ntpath.join(dev, 'profile')
     report.update({'workspace': workspace, 'project': project, 'release': release, 'validation_profile': profile})
     powershell("foreach($p in @(" + ','.join(psquote(p) for p in [dev, release, project + '\\backups']) + ")){[IO.Directory]::CreateDirectory($p)|Out-Null};$true|ConvertTo-Json")
 
@@ -169,7 +170,7 @@ try:
         check('SFTP archive hash', digest == '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a')
 
     powershell("[Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')|Out-Null;[IO.Compression.ZipFile]::ExtractToDirectory("+psquote(archive)+','+psquote(release)+");$true|ConvertTo-Json", timeout=180)
-    exe = release + '\\clipboard-windows-x64\\Clipboard.exe'
+    exe = ntpath.join(release, 'clipboard-windows-x64', 'Clipboard.exe')
     report['executable'] = exe
     task = 'ClipboardLocalValidation-' + suffix
 
@@ -195,7 +196,7 @@ try:
             return powershell("Start-Process -FilePath "+psquote(exe)+" -ArgumentList "+psquote(arguments)+";$true|ConvertTo-Json")
 
     launch('--test-mode --show-manager --data-dir="' + profile + '"')
-    endpoint = profile + '\\test-endpoint.json'
+    endpoint = ntpath.join(profile, 'test-endpoint.json')
     for _ in range(60):
         if powershell('[IO.File]::Exists('+psquote(endpoint)+')|ConvertTo-Json'):
             break
@@ -241,7 +242,7 @@ try:
         bridge('capture', [text])
     bridge('eval', ['popup', "document.getElementById('latest').click()"]);time.sleep(.5)
     for kind in ['popup', 'manager']:
-        screenshot = dev + '\\' + kind + '.png'
+        screenshot = ntpath.join(dev, kind + '.png')
         bridge('screenshot', [kind, screenshot]);get_file(screenshot, OUT / ('win10-'+kind+'.png'))
         check(kind+' authorized Windows screenshot retrieved', (OUT / ('win10-'+kind+'.png')).stat().st_size > 1000)
     # Shut down the isolated validation instance, then launch normal collection.
