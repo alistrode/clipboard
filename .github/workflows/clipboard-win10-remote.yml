@@ -1,8 +1,8 @@
-name: Clipboard real Windows 10 remote acceptance
+name: Clipboard keyboard fix on authorized Acer
 on:
   push:
     branches: [projects/clipboard]
-    paths: ['.github/workflows/clipboard-win10-remote.yml', 'tests/win10-remote.py']
+    paths: ['.github/workflows/clipboard-win10-remote.yml', 'tests/win10-remote.py', 'tests/remote-hotkey-fix.py']
 permissions:
   contents: read
 concurrency:
@@ -36,7 +36,7 @@ jobs:
           retention-days: 1
       - name: Connect to authorized Windows 10 and run clipboard project
         shell: bash
-        run: python3 tests/win10-remote.py
+        run: python3 tests/remote-hotkey-fix.py
       - name: Save remote evidence
         if: always()
         uses: actions/upload-artifact@v4

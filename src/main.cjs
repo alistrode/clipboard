@@ -9,6 +9,8 @@ app.setName('Clipboard Local');
 if(process.platform==='linux')app.commandLine.appendSwitch('enable-features','GlobalShortcutsPortal');
 let popup,manager,tray,quitting=false,worker,ready,autostart,timer,lastObserved=null,lastGeneration=0;
 let fault='';const pending=new Map();let serial=0;let clipboardListener,reading=false,readAgain=false,forceAgain=false,ownCopyValue=null;
+let shortcutRecorder=null;
+async function finishShortcutRecording(sender){if(shortcutRecorder!==sender)return;shortcutRecorder=null;const value=await db('setting','shortcut')||'CommandOrControl+Shift+V';if(!quitting&&!globalShortcut.isRegistered(value)&&!globalShortcut.register(value,showPopup))reportError(new Error('系统未能恢复快捷键：'+value));}
 const lock=app.requestSingleInstanceLock();if(!lock){app.quit();}else{
 app.on('second-instance',()=>showPopup());
 app.on('window-all-closed',()=>{});
@@ -54,6 +56,7 @@ async function makeWindow(kind){
   w.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   w.webContents.on('will-navigate',e=>e.preventDefault());
   w.on('close',e=>{if(!quitting){e.preventDefault();w.hide();}});
+  w.on('hide',()=>finishShortcutRecording(w.webContents.id).catch(reportError));
   let boundsTimer;w.on('move',()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(()=>db('setting','bounds-'+kind,w.getBounds()).catch(reportError),150);});
   if(isPopup)w.on('blur',()=>{if(!testing&&!w.webContents.isDevToolsOpened())w.hide();});
   await w.loadFile(path.join(__dirname,'ui','index.html'),{query:{view:kind}});
@@ -67,7 +70,18 @@ function installIPC(){
   ipcMain.handle('state',(_e,kind,value)=>{if(!['popup','manager'].includes(kind))throw Error('未知窗口');return db('setting','ui-'+kind,value);});
   ipcMain.handle('settings',async()=>({autostart:autostart.get(),shortcut:await db('setting','shortcut')||'CommandOrControl+Shift+V',error:fault,wayland:process.env.XDG_SESSION_TYPE==='wayland'}));
   ipcMain.handle('autostart',async(_e,enabled)=>{if(typeof enabled!=='boolean')throw Error('无效设置');const actual=autostart.set(enabled);await db('setting','autostart',actual);return actual;});
-  ipcMain.handle('shortcut',async(_e,value)=>{if(typeof value!=='string'||value.length>100)throw Error('无效快捷键');const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';if(old===value)return value;if(!globalShortcut.register(value,showPopup))throw Error('快捷键被占用或不受支持');try{await db('setting','shortcut',value);}catch(e){globalShortcut.unregister(value);throw e;}globalShortcut.unregister(old);return value;});
+  ipcMain.handle('shortcut-recording',async(e,active)=>{if(active){shortcutRecorder=e.sender.id;const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';globalShortcut.unregister(old);}else await finishShortcutRecording(e.sender.id);return true;});
+  ipcMain.handle('shortcut',async(_e,value)=>{
+    if(typeof value!=='string'||!value||value.length>100)throw Error('无法识别该按键');
+    const old=await db('setting','shortcut')||'CommandOrControl+Shift+V';
+    if(old===value&&!shortcutRecorder)return value;
+    try{if(!globalShortcut.register(value,showPopup))throw Error('系统拒绝注册：'+value+'，可能已被系统或其他程序占用');}
+    catch(e){throw Error('未能保存 '+value+'：'+e.message+'。原快捷键已保留。');}
+    try{await db('setting','shortcut',value);}catch(e){globalShortcut.unregister(value);throw e;}
+    if(old!==value)globalShortcut.unregister(old);
+    if(shortcutRecorder)globalShortcut.unregister(value);
+    fault='';return value;
+  });
   ipcMain.handle('copy',async(_e,id)=>{const row=await db('get',id);if(!row)throw Error('记录已删除');ownCopyValue=row.content;await clipboard.writeText(row.content);lastObserved=row.content;lastGeneration++;if(popup&&_e.sender===popup.webContents)popup.hide();return true;});
   ipcMain.handle('remove',async(_e,ids)=>{if(!Array.isArray(ids)||ids.some(id=>!Number.isSafeInteger(id)))throw Error('无效记录');await db('remove',ids);broadcast('changed');return true;});
   ipcMain.handle('action',(e,action)=>{const w=BrowserWindow.fromWebContents(e.sender);if(action==='hide')w.hide();if(action==='minimize')w.minimize();if(action==='maximize'){w.isMaximized()?w.unmaximize():w.maximize();}if(action==='manager')showManager();return true;});

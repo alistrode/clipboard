@@ -9,7 +9,7 @@ let knownAnchor=null,loading=false,reloadPending=false;
 const viewport=$('list');
 function error(e){$('error').textContent=e?.message||String(e);$('error').hidden=false;}
 function clearError(){$('error').hidden=true;}
-function shortcutText(s){return s.replace('CommandOrControl','Ctrl').replace('Control','Ctrl').split('+').join(' + ');}
+function shortcutText(s){return clipHotkey.display(s);}
 function dateText(n){const d=new Date(n),now=new Date();const time=d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false});const day=new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();return (day===today?'今天':today-day===86400000?'昨天':d.toLocaleDateString('zh-CN'))+' '+time;}
 function getAnchor(){const index=Math.floor(viewport.scrollTop/rowHeight);const r=rows[index-start];return r?{id:r.id,offset:viewport.scrollTop%rowHeight}:knownAnchor;}
 function save(){clearTimeout(saveTimer);const anchor=getAnchor();if(anchor)knownAnchor=anchor;const state={q:query,selected,anchor,scrollTop:viewport.scrollTop};saveTimer=setTimeout(()=>clip.state(kind,state).catch(error),100);}
@@ -62,6 +62,7 @@ $('delete').onclick=async()=>{if(!selected)return;try{await clip.remove([selecte
 $('close').onclick=()=>{save();clip.action('hide');};$('more').onclick=()=>clip.action('manager');$('minimize').onclick=()=>clip.action('minimize');$('maximize').onclick=()=>clip.action('maximize');
 $('detail-close').onclick=()=>$('detail').close();$('detail-copy').onclick=()=>copy(detailId);
 document.addEventListener('keydown',async e=>{
+  if(e.target===$('shortcut'))return;
   if(e.key==='Escape'){if($('detail').open)$('detail').close();else{save();clip.action('hide');}return;}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();$('search').focus();return;}
   if(e.target===$('shortcut')||e.target.tagName==='TEXTAREA')return;
@@ -80,7 +81,20 @@ $('autostart').addEventListener('pointermove',e=>{if(!gesture)return;const dx=e.
 $('autostart').addEventListener('pointerup',e=>{if(!gesture)return;const dx=e.clientX-gesture.x,initial=gesture.initial;gesture=null;$('autostart').querySelector('.thumb').style.transform='';if(Math.abs(dx)>=6)setAuto(dx>0);else paintAuto();});
 $('autostart').addEventListener('pointercancel',()=>{gesture=null;$('autostart').querySelector('.thumb').style.transform='';paintAuto();});
 $('autostart').addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();setAuto(e.key==='ArrowRight'?true:e.key==='ArrowLeft'?false:!autoOn);}});
-$('shortcut').addEventListener('keydown',async e=>{e.preventDefault();if(['Control','Shift','Alt','Meta'].includes(e.key))return;if(e.key==='Escape'){e.target.blur();return;}if(!(e.ctrlKey||e.altKey||e.metaKey)){error(new Error('请使用包含 Ctrl 或 Alt 的组合键'));return;}const parts=[];if(e.ctrlKey||e.metaKey)parts.push('CommandOrControl');if(e.altKey)parts.push('Alt');if(e.shiftKey)parts.push('Shift');const key=e.key===' '?'Space':e.key.length===1?e.key.toUpperCase():e.key;parts.push(key);try{const value=await clip.shortcut(parts.join('+'));e.target.value=shortcutText(value);if(!manager)$('foot-left').textContent=shortcutText(value);clearError();}catch(e){error(e);}});
+let pendingShortcut=null,recordReady=Promise.resolve();
+$('shortcut').title='按任意键或组合键，松开后自动保存；点击其他位置结束录入';
+$('shortcut').addEventListener('focus',()=>{recordReady=clip.recordShortcut(true).catch(error);});
+$('shortcut').addEventListener('blur',()=>{pendingShortcut=null;clip.recordShortcut(false).catch(error);});
+window.addEventListener('blur',()=>{if(document.activeElement===$('shortcut'))$('shortcut').blur();});
+$('shortcut').addEventListener('keydown',e=>{e.preventDefault();e.stopPropagation();if(!e.repeat)pendingShortcut={value:clipHotkey.accelerator(e),key:e.key};});
+$('shortcut').addEventListener('keyup',async e=>{
+  e.preventDefault();e.stopPropagation();
+  if(!pendingShortcut)return;
+  if(!clipHotkey.isModifier(pendingShortcut.key)&&clipHotkey.isModifier(e.key))return;
+  const candidate=pendingShortcut;pendingShortcut=null;
+  try{await recordReady;const value=await clip.shortcut(candidate.value);e.target.value=shortcutText(value);if(!manager)$('foot-left').textContent=shortcutText(value);clearError();}
+  catch(e){error(e);const s=await clip.settings();$('shortcut').value=shortcutText(s.shortcut);}
+});
 clip.on('changed',()=>{if(loading){reloadPending=true;return;}const anchor=getAnchor();load({anchor}).then(()=>{save();if(reloadPending){reloadPending=false;load({anchor:getAnchor()});}});});
 clip.on('shown',()=>{load({anchor:getAnchor()});});
 clip.on('detail',showDetail);clip.on('status',s=>{if(s.error)error(s.error);else clearError();});

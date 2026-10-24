@@ -97,6 +97,18 @@ try:
     wait_for(lambda: evaluate('manager', "document.documentElement.dataset.ready === 'true'"))
     wait_for(lambda: evaluate('popup', "document.documentElement.dataset.ready === 'true'"))
     check('both desktop windows initialized', True)
+    for key, flags, expected in [('a', {}, 'Control'), ('F8', {}, 'F8'), ('F8', {'shiftKey': True}, 'Shift+F8'), ('F8', {'metaKey': True, 'shiftKey': True}, 'Super+Shift+F8')]:
+        if key == 'a':
+            expected = 'A'
+        js = "(()=>{const b=document.getElementById('shortcut');b.focus();return true;})()"
+        evaluate('manager', js)
+        time.sleep(.15)
+        event = json.dumps({'key': key, 'code': 'KeyA' if key == 'a' else 'F8', 'bubbles': True, **flags})
+        evaluate('manager', "(()=>{const b=document.getElementById('shortcut');b.dispatchEvent(new KeyboardEvent('keydown',"+event+"));b.dispatchEvent(new KeyboardEvent('keyup',"+event+"));return true;})()")
+        wait_for(lambda: evaluate('manager', "clip.settings().then(s=>s.shortcut)") == expected)
+        check('unrestricted shortcut UI ' + expected, True)
+        evaluate('manager', "document.getElementById('shortcut').blur()")
+    evaluate('manager', "clip.shortcut('CommandOrControl+Shift+V')")
 
     for value in ['last scroll position', 'npm run dev', 'https://github.com/', 'Windows clipboard text']:
         call('capture', value)

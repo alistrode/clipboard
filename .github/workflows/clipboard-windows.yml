@@ -33,7 +33,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force acceptance | Out-Null
           Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture | ConvertTo-Json | Set-Content acceptance/os.json
-          node --test tests/store.test.cjs
+          npm test
       - name: Run repository Windows package, registry, clipboard and screenshot checks
         shell: pwsh
         env:
