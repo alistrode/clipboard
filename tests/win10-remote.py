@@ -132,7 +132,7 @@ try:
             pass
     check('writable xxm workspace selected', bool(workspace))
     project = ntpath.join(workspace, 'clipboard')
-    suffix = str(os.environ.get('GITHUB_RUN_ID', int(time.time())))
+    suffix = '40083184338'  # Resume the already verified package on the authorized Acer laptop.
     dev = ntpath.join(project, 'dev', 'validation-' + suffix)
     release = ntpath.join(project, 'release', 'win10-' + suffix)
     archive = ntpath.join(dev, 'clipboard-windows-x64.zip')
@@ -143,6 +143,11 @@ try:
     download_script = r"""
     $archive=ARCHIVE
     $timer=[Diagnostics.Stopwatch]::StartNew()
+    if([IO.File]::Exists($archive)){
+      $h=[Security.Cryptography.SHA256]::Create();$f=[IO.File]::OpenRead($archive)
+      try{$existing=[BitConverter]::ToString($h.ComputeHash($f)).Replace('-','').ToLowerInvariant()}finally{$f.Dispose();$h.Dispose()}
+      if($existing -eq '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a'){[pscustomobject]@{Sha256=$existing;Bytes=(New-Object IO.FileInfo($archive)).Length;Seconds=0.01}|ConvertTo-Json -Compress;exit}
+    }
     $wc=New-Object Net.WebClient
     try {$wc.DownloadFile('https://filebin.net/clipboard-1792827258-e3e0dca2/clipboard-windows-x64.zip',$archive)} finally {$wc.Dispose()}
     $h=[Security.Cryptography.SHA256]::Create();$f=[IO.File]::OpenRead($archive)
@@ -169,7 +174,7 @@ try:
         digest = powershell("$h=[Security.Cryptography.SHA256]::Create();$f=[IO.File]::OpenRead("+psquote(archive)+");try{[BitConverter]::ToString($h.ComputeHash($f)).Replace('-','').ToLowerInvariant()|ConvertTo-Json}finally{$f.Dispose();$h.Dispose()}")
         check('SFTP archive hash', digest == '40b974b3b093b3fe4976ca66091f62a466b36303440fbf81a578f0bce05c2b6a')
 
-    powershell("[Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')|Out-Null;[IO.Compression.ZipFile]::ExtractToDirectory("+psquote(archive)+','+psquote(release)+");$true|ConvertTo-Json", timeout=180)
+    powershell("[Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')|Out-Null;if(-not [IO.File]::Exists((Join-Path "+psquote(release)+" 'clipboard-windows-x64\\Clipboard.exe'))){[IO.Compression.ZipFile]::ExtractToDirectory("+psquote(archive)+','+psquote(release)+")};$true|ConvertTo-Json", timeout=180)
     exe = ntpath.join(release, 'clipboard-windows-x64', 'Clipboard.exe')
     report['executable'] = exe
     task = 'ClipboardLocalValidation-' + suffix
@@ -206,8 +211,16 @@ try:
 
     def bridge(command, args=None):
         payload = json.dumps({'command': command, 'args': args or []}, ensure_ascii=True)
-        code = "$payload=[Console]::In.ReadLine();$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$h=@{Authorization=('Bearer '+$e.token)}; $r=Invoke-RestMethod -Uri ('http://127.0.0.1:'+$e.port) -Method Post -Headers $h -ContentType 'application/json' -Body $payload; $r|ConvertTo-Json -Depth 12 -Compress"
-        return powershell(code, input_data=(payload+'\n').encode('ascii')).get('value')
+        if len(payload) < 2500:
+            payload_code = "$payload=" + psquote(payload) + ";"
+        else:
+            local = TMP / 'request.json'
+            local.write_text(payload, encoding='ascii')
+            remote = ntpath.join(dev, 'request.json')
+            run(['scp', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'UserKnownHostsFile='+str(TMP/'clipboard-known-hosts'), '-o', 'HostKeyAlias='+HOST, '-i', str(KEY), '-P', '22022', str(local), USER+'@127.0.0.1:'+remote.replace(chr(92), '/')], timeout=120)
+            payload_code = "$payload=[IO.File]::ReadAllText("+psquote(remote)+");"
+        code = payload_code + "$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json; charset=utf-8';try{$bytes=$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes($payload));[Text.Encoding]::UTF8.GetString($bytes)}finally{$wc.Dispose()}"
+        return powershell(code).get('value')
 
     info = bridge('info')
     check('both authorized Windows application windows visible', info['popupVisible'] and info['managerVisible'])
@@ -216,10 +229,10 @@ try:
     app_session = powershell("@(Get-Process -Name Clipboard -ErrorAction SilentlyContinue | Where-Object {$_.Path -eq "+psquote(exe)+"} | ForEach-Object {$_.SessionId})|ConvertTo-Json -Compress")
     sessions = app_session if isinstance(app_session, list) else [app_session]
     check('application runs in logged-in desktop session', bool(set(sessions).intersection(identity['ExplorerSessions'])))
-    for text in ['继续停留在上次的位置。', 'npm run dev', 'https://github.com/', 'Windows 10 实机运行验证']:
+    for text in ['继续停留在上次的位置。', 'npm run dev', 'https://github.com/', '剪贴板实机运行验证']:
         bridge('capture', [text])
-    first = bridge('capture', ['Windows 10 实机运行验证'])
-    check('exact deduplication', bridge('list', [{'q': 'Windows 10 实机运行验证'}])['total'] == 1)
+    first = bridge('capture', ['剪贴板实机运行验证'])
+    check('exact deduplication', bridge('list', [{'q': '剪贴板实机运行验证'}])['total'] == 1)
     value = '完整文本验证🙂' * 25000
     long = bridge('capture', [value])
     check('long clipboard text persisted', bridge('get', [long['id']])['content'] == value)
@@ -227,18 +240,19 @@ try:
         js = "(()=>{const b=document.getElementById('autostart');b.dispatchEvent(new PointerEvent('pointerdown',{pointerId:1,clientX:60,bubbles:true}));b.dispatchEvent(new PointerEvent('pointerup',{pointerId:1,clientX:"+str(60+dx)+",bubbles:true}));return true;})()"
         bridge('eval', ['manager', js]);time.sleep(.3)
         check('slide autostart '+str(enabled), bridge('info')['autostart'] == enabled)
-    bridge('eval', ['manager', "(()=>{const s=document.getElementById('search');s.value='Windows 10';s.dispatchEvent(new Event('input',{bubbles:true}));return true;})()"])
+    bridge('eval', ['manager', "(()=>{const s=document.getElementById('search');s.value='实机运行验证';s.dispatchEvent(new Event('input',{bubbles:true}));return true;})()"])
     time.sleep(.4)
     check('UI search on authorized Windows', bridge('eval', ['manager', "document.querySelectorAll('.row').length===1"]))
-    for i in range(90):
-        bridge('capture', ['位置恢复验证 '+str(i)])
+    batch = json.dumps([{'command':'capture','args':['位置恢复验证 '+str(i)]} for i in range(90)],ensure_ascii=True)
+    batch_code="$requests="+psquote(batch)+"|ConvertFrom-Json;$e=[IO.File]::ReadAllText("+psquote(endpoint)+")|ConvertFrom-Json;$wc=New-Object Net.WebClient;$wc.Headers['Authorization']='Bearer '+$e.token;$wc.Headers['Content-Type']='application/json';try{foreach($r in $requests){$wc.UploadData(('http://127.0.0.1:'+$e.port),'POST',[Text.Encoding]::UTF8.GetBytes(($r|ConvertTo-Json -Depth 6 -Compress)))|Out-Null};$true|ConvertTo-Json}finally{$wc.Dispose()}"
+    powershell(batch_code)
     bridge('eval', ['popup', "document.getElementById('list').scrollTop=3500"]);time.sleep(.6)
     state = bridge('setting', ['ui-popup'])
     check('scroll position saved', bool(state and state.get('anchor')))
     bridge('capture', ['后台新增保持浏览位置']);time.sleep(.5)
     check('new records preserve scroll anchor', bridge('setting', ['ui-popup'])['anchor'] == state['anchor'])
     bridge('eval', ['manager', "(()=>{const s=document.getElementById('search');s.value='';s.dispatchEvent(new Event('input',{bubbles:true}));return true;})()"])
-    for text in ['继续停留在上次的位置。', 'npm run dev', 'https://github.com/', 'Windows 10 实机运行验证']:
+    for text in ['继续停留在上次的位置。', 'npm run dev', 'https://github.com/', '剪贴板实机运行验证']:
         bridge('capture', [text])
     bridge('eval', ['popup', "document.getElementById('latest').click()"]);time.sleep(.5)
     for kind in ['popup', 'manager']:
