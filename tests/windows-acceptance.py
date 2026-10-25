@@ -73,7 +73,7 @@ try:
     process = subprocess.Popen([
         'powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', str(ROOT / 'scripts/start-windows.ps1'),
-        '--test-mode', '--show-manager', '--data-dir=' + str(PROFILE),
+        '--test-mode', '--test-recovery', '--show-manager', '--data-dir=' + str(PROFILE),
     ], cwd=ROOT, stdout=log, stderr=err)
     def launcher_ready():
         if process.poll() not in (None, 0):
@@ -93,6 +93,14 @@ try:
     check('tray object created', info['tray'])
     check('global shortcut registered', info['shortcut'])
     check('first launch registers Windows autostart', info['autostart'])
+    guardian=wait_for(lambda: (call('info').get('recovery') or {}).get('ready') and call('info')['recovery'],45)
+    old_pid=guardian['parent']
+    subprocess.run(['taskkill.exe','/PID',str(old_pid),'/T','/F'],check=True,capture_output=True)
+    def recovered():
+        value=call('info');guard=value.get('recovery') or {}
+        return value if guard.get('parent')!=old_pid and guard.get('ready') else None
+    wait_for(recovered,60)
+    check('whole app recovers after process tree termination',True)
     call('show')
     wait_for(lambda: evaluate('manager', "document.documentElement.dataset.ready === 'true'"))
     wait_for(lambda: evaluate('popup', "document.documentElement.dataset.ready === 'true'"))
@@ -170,16 +178,16 @@ try:
     for kind in ['popup', 'manager']:
         call('screenshot', kind, str(OUT / (kind + '.png')))
         check(kind + ' actual screenshot captured', (OUT / (kind + '.png')).stat().st_size > 1000)
-    call('quit')
+    call('trayQuit')
     time.sleep(1)
     # Re-run the same packaged executable and verify persistent database/state.
     (PROFILE / 'test-endpoint.json').unlink(missing_ok=True)
     exe = ROOT / '.runtime/clipboard-windows-x64/Clipboard.exe'
-    process = subprocess.Popen([str(exe), '--test-mode', '--show-manager', '--data-dir=' + str(PROFILE)], stdout=log, stderr=err)
+    process = subprocess.Popen([str(exe), '--test-mode', '--test-recovery', '--show-manager', '--data-dir=' + str(PROFILE)], stdout=log, stderr=err)
     wait_for(lambda: (PROFILE / 'test-endpoint.json').exists())
     check('process restart preserves long clipboard text', call('get', row['id'])['content'] == long)
     check('process restart preserves UI state', call('setting', 'ui-popup') is not None)
-    call('quit')
+    call('trayQuit')
     (OUT / 'result.json').write_text(json.dumps({'passed': passed, 'count': len(passed), 'scope': 'GitHub-hosted Windows Server 2022; NOT Windows 10 desktop or reboot verification'}, indent=2), encoding='utf8')
 except Exception as exc:
     (OUT / 'failure.json').write_text(json.dumps({'error': str(exc), 'passed': passed}, indent=2), encoding='utf8')
@@ -188,6 +196,6 @@ finally:
     if listener and listener.poll() is None:
         listener.terminate()
     try:
-        call('quit')
+        call('trayQuit')
     except Exception:
         pass

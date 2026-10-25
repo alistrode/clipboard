@@ -2,6 +2,9 @@ const {app,BrowserWindow,ipcMain,clipboard,Tray,Menu,nativeImage,globalShortcut,
 const {Worker}=require('node:worker_threads');
 const path=require('node:path');const fs=require('node:fs');const os=require('node:os');
 const {createAutostart}=require('./autostart.cjs');
+const {recovery}=require('./recovery.cjs');
+let recoveryService;
+function quitFromTray(){recoveryService?.stop();app.quit();}
 const testing=process.argv.includes('--test-mode');
 const dataArg=process.argv.find(a=>a.startsWith('--data-dir='));
 if(dataArg)app.setPath('userData',dataArg.slice(11));
@@ -53,6 +56,9 @@ async function start(){
   if(!process.argv.includes('--background'))await showPopup();
   if(process.argv.includes('--show-manager'))await showManager();
   if(!testing){poll();if(process.platform==='win32')startWindowsListener().catch(reportError);}
+  const recoveryArgs=[...appArgs];if(dataArg)recoveryArgs.push(dataArg);if(testing)recoveryArgs.push('--test-mode','--test-recovery');
+  recoveryService=recovery({app,enabled:!testing||process.argv.includes('--test-recovery'),args:recoveryArgs});
+  try{await recoveryService.start();}catch(e){reportError(new Error('异常恢复守护启动失败：'+e.message));}
   if(testing)startTestBridge();
   runtimeLog('ready autostart='+autostart.get()+' winV='+winVActive+' keyboard='+keyboardReady);
 }
@@ -61,7 +67,7 @@ function createTray(){
   const pixels=Buffer.alloc(24*24*4);for(let y=3;y<22;y++)for(let x=5;x<20;x++){if(x===5||x===19||y===3||y===21||(y===9||y===13||y===17)&&x>8&&x<17){const i=(y*24+x)*4;pixels[i]=40;pixels[i+1]=40;pixels[i+2]=40;pixels[i+3]=255;}}
   const icon=nativeImage.createFromBitmap(pixels,{width:24,height:24,scaleFactor:1});
   tray=new Tray(icon);tray.setToolTip('剪贴板 · 正在记录');
-  tray.setContextMenu(Menu.buildFromTemplate([{label:'打开剪贴板',click:showPopup},{label:'管理',click:showManager},{type:'separator'},{label:'退出',click:()=>app.quit()}]));
+  tray.setContextMenu(Menu.buildFromTemplate([{label:'打开剪贴板',click:showPopup},{label:'管理',click:showManager},{type:'separator'},{label:'退出',click:quitFromTray}]));
   tray.on('click',showPopup);
 }
 async function makeWindow(kind){
@@ -152,9 +158,10 @@ function startTestBridge(){
       else if(command==='eval'){const w=args[0]==='popup'?popup:manager;value=await w.webContents.executeJavaScript(args[1]);}
       else if(command==='screenshot'){const w=args[0]==='popup'?popup:manager;const img=await w.webContents.capturePage();fs.writeFileSync(args[1],img.toPNG());value=true;}
       else if(command==='arrange'){popup.setPosition(80,110);manager.setPosition(530,110);value=true;}
+      else if(command==='trayQuit'){value=true;setTimeout(quitFromTray,100);}
       else if(command==='quit'){value=true;setTimeout(()=>app.quit(),100);}
       else if(['list','get','setting','locate'].includes(command))value=await db(command,...args);
-      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:registeredShortcut(await db('setting','shortcut')||'CommandOrControl+Shift+V'),winVActive,keyboardReady,listenerPid:clipboardListener?.pid};
+      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:registeredShortcut(await db('setting','shortcut')||'CommandOrControl+Shift+V'),winVActive,keyboardReady,listenerPid:clipboardListener?.pid,recovery:recoveryService?.info()};
       else throw Error('Unknown command');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({value}));
     }catch(e){res.statusCode=500;res.end(JSON.stringify({error:e.message}));}
   });

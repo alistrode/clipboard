@@ -101,7 +101,7 @@ try:
     profile=ntpath.join(dev,'profile')
     endpoint=ntpath.join(profile,'test-endpoint.json')
     task='ClipboardHotkeyFix-'+os.environ['GITHUB_RUN_ID']
-    files=['src/main.cjs','src/autostart.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/style.css','src/ui/hotkey.js','package.json']
+    files=['src/main.cjs','src/autostart.cjs','src/recovery.cjs','src/recovery.ps1','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/style.css','src/ui/hotkey.js','package.json']
     from zipfile import ZipFile,ZIP_DEFLATED
     patch=TMP/'hotkey-patch.zip'
     with ZipFile(patch,'w',compression=ZIP_DEFLATED,compresslevel=1) as z:
@@ -141,7 +141,7 @@ try:
     [pscustomobject]@{Backup=$backup;Databases=$data;Version=([IO.File]::ReadAllText((Join-Path $app 'package.json'))|ConvertFrom-Json).version}|ConvertTo-Json -Compress
     """.replace('$app=APP;', '$app='+psquote(app)+';').replace('EXE',psquote(exe)).replace('PATCH',psquote(remote_patch)).replace('DEV',psquote(dev)).replace('HASH',psquote(patch_hash)).replace('BACKUPNAME',psquote('before-hotkey-'+os.environ['GITHUB_RUN_ID'])).replace('BACKUP',psquote(r'E:\xxm\clipboard\backups\hotkey-before-'+os.environ['GITHUB_RUN_ID']+'.zip'))
     patched=powershell(code)
-    check('version 1.0.4 installed with source and history backups',patched['Version']=='1.0.4')
+    check('version 1.0.5 installed with source and history backups',patched['Version']=='1.0.5')
     report['backup']=patched['Backup']
     # Read history counts only, never clipboard contents; seed a separate test profile without altering autostart.
     count_script=TMP/'hotkey-count.cjs'
@@ -158,7 +158,7 @@ try:
     def launch(args):
         code="$s=New-Object -ComObject 'Schedule.Service';$s.Connect();$d=$s.NewTask(0);$d.Principal.UserId=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$d.Principal.LogonType=3;$d.Principal.RunLevel=0;$d.Settings.ExecutionTimeLimit='PT0S';$d.Settings.DisallowStartIfOnBatteries=$false;$d.Settings.StopIfGoingOnBatteries=$false;$a=$d.Actions.Create(0);$a.Path="+psquote(exe)+";$a.Arguments="+psquote(args)+";$t=$s.GetFolder('\').RegisterTaskDefinition("+psquote(task)+",$d,6,$d.Principal.UserId,$null,3,$null);$t.Run($null)|Out-Null;$true|ConvertTo-Json"
         powershell(code)
-    launch('--test-mode --show-manager --data-dir="'+profile+'"')
+    launch('--test-mode --test-recovery --show-manager --data-dir="'+profile+'"')
     for _ in range(30):
         if powershell('[IO.File]::Exists('+psquote(endpoint)+')|ConvertTo-Json'):break
         time.sleep(.5)
@@ -194,6 +194,9 @@ try:
     for i in range(2):
         bridge('eval',['popup',"clip.action('hide')"])
         powershell(send)
+        for _ in range(8):
+            if bridge('info')['popupVisible']:break
+            time.sleep(.5)
         check('actual Win+V summons our clipboard '+str(i+1),bridge('info')['popupVisible'])
     # Synthetic records stay in the isolated test database.
     dimensions=bridge('eval',['popup',"JSON.stringify([...document.querySelectorAll('.card')].slice(0,6).map(c=>{const s=c.querySelector('.snippet'),a=c.getBoundingClientRect(),b=s.getBoundingClientRect();return {inside:b.left>=a.left&&b.right<=a.right&&b.bottom<=a.bottom&&b.top>=a.top,lines:b.height<=48,width:c.scrollWidth<=c.clientWidth};}))"])
@@ -216,7 +219,27 @@ try:
     check('new clipboard entry preserves browsing anchor',before_anchor['anchor']==after_anchor['anchor'])
     bridge('screenshot',['popup',ntpath.join(dev,'winv-popup.png')]);get_file(ntpath.join(dev,'winv-popup.png'),OUT/'winv-popup.png')
     bridge('screenshot',['manager',ntpath.join(dev,'hotkey-manager.png')]);get_file(ntpath.join(dev,'hotkey-manager.png'),OUT/'hotkey-manager.png')
-    bridge('quit');time.sleep(1)
+    guard=bridge('info').get('recovery')
+    for _ in range(10):
+        if guard and guard.get('ready'):break
+        time.sleep(1);guard=bridge('info').get('recovery')
+    check('independent application watchdog ready',guard and guard.get('ready'))
+    previous_parent=guard['parent']
+    # Kill the application process tree; Task Scheduler keeps the guard independent.
+    powershell('taskkill.exe /PID '+str(previous_parent)+' /T /F|Out-Null;$true|ConvertTo-Json')
+    recovered_app=None
+    for _ in range(25):
+        time.sleep(1)
+        try:
+            recovered_app=bridge('info')
+            if recovered_app.get('recovery',{}).get('parent')!=previous_parent and recovered_app.get('keyboardReady'):break
+        except Exception:pass
+    check('whole application recovers after unexpected process-tree exit',bool(recovered_app and recovered_app.get('recovery',{}).get('parent')!=previous_parent and recovered_app.get('keyboardReady')))
+    report['recovered_app_pid']=recovered_app['recovery']['parent']
+    bridge('trayQuit');time.sleep(6)
+    stopped=powershell("@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq "+psquote(exe)+"}).Count|ConvertTo-Json")
+    check('intentional tray exit stays exited',stopped==0)
+
     launch('--background');time.sleep(12)
     powershell(send)
     time.sleep(1)
@@ -225,7 +248,9 @@ try:
     check('Win+V is the persisted normal shortcut',after['shortcut']=='Super+V')
     normal=powershell("@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq "+psquote(exe)+" -and $_.MainWindowHandle -ne 0}|Select-Object Id,SessionId,MainWindowHandle)|ConvertTo-Json -Compress")
     check('exact login arguments start app and actual Win+V opens normal window',bool(normal))
-    report.update({'status':'passed','version':'1.0.4','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
+    final_startup=powershell("[pscustomobject]@{Command=(Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run').ClipboardLocal}|ConvertTo-Json -Compress")
+    check('normal app keeps startup entry enabled',final_startup['Command']==registered['Command'])
+    report.update({'status':'passed','version':'1.0.5','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
 except Exception as exc:
     report.update({'status':'failed','error':str(exc)})
     raise

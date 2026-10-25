@@ -16,7 +16,7 @@ if (-not (Test-Path $exe)) {
     $inputFile = [System.IO.File]::OpenRead($archive)
     try { $hash = [BitConverter]::ToString($hasher.ComputeHash($inputFile)).Replace('-', '').ToLowerInvariant() }
     finally { $inputFile.Dispose(); $hasher.Dispose() }
-    if ($hash -ne 'a44b17ae0faa570a2b2d85a849f0e4e7e5253520b1ba123166bef37c4dc2a998') {
+    if ($hash -ne 'e8e38adaa6ea27b965dc7290bb9293e319752ed91658ab398b430819ccbf9282') {
         throw 'Runtime archive SHA-256 mismatch. Download the complete package again.'
     }
     [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null

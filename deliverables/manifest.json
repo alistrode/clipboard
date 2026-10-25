@@ -1,45 +1,45 @@
 {
   "linux": {
     "archive": "clipboard-linux-x64.tar.gz",
-    "sha256": "9aef2b999e1c618dbd6dad99d4332806190c4464fb9892db5027f93643d7eca7",
-    "bytes": 134982785,
+    "sha256": "a8fc2054c0369e8b321bdb2a74b27d561def80b3a41b1a9a62eb1f899a7dac48",
+    "bytes": 134985535,
     "parts": [
       {
         "file": "linux.part001",
-        "sha256": "e4f336f285b5dc416e4bb96151db3f84406fbfd2fd166997f3ac9734ad9e5338",
+        "sha256": "535c6d0e46b6b7eb5b75ef96f82a7435040b22c67dc7fc95ee64c42a9ce76979",
         "bytes": 33554432
       },
       {
         "file": "linux.part002",
-        "sha256": "97f20ffbf52ac46075a367178659897b180e7880391c79d5e148384981517f53",
+        "sha256": "0b198278d9b98b29006c3aa28cabdfa5e2cc1dfc92b9a6c75d608097cc0796ca",
         "bytes": 33554432
       },
       {
         "file": "linux.part003",
-        "sha256": "22a7bb56e76775ce7db6ba3581d2c0dba72dfb398a5f1dadd8afc2030cbaa7cc",
+        "sha256": "8ecb1e5fe07a7b3d5528d30664e8500ba1043081de174cd79b9665bae2a7a0d3",
         "bytes": 33554432
       },
       {
         "file": "linux.part004",
-        "sha256": "76fb98eb07482c357eab3b15ac408cf7c4dfd89098af92fc5cd66745dccddf57",
+        "sha256": "6ccc8e298c6361942ccee9fd466759a1bf9cf172424c6ff8723eb794a9790b33",
         "bytes": 33554432
       },
       {
         "file": "linux.part005",
-        "sha256": "61cf9f351ffd1913ed288dc20e475b8e0dbe69a487e4127c90b2b5cd0d62999b",
-        "bytes": 765057
+        "sha256": "5466fdc80fcd8e3a0314781287a4dbba3c8d03377bd3325b94d0a3423355e279",
+        "bytes": 767807
       }
     ],
     "verified_platform": false
   },
   "windows": {
     "archive": "clipboard-windows-x64.zip",
-    "sha256": "a44b17ae0faa570a2b2d85a849f0e4e7e5253520b1ba123166bef37c4dc2a998",
-    "bytes": 175629872,
+    "sha256": "e8e38adaa6ea27b965dc7290bb9293e319752ed91658ab398b430819ccbf9282",
+    "bytes": 175632791,
     "parts": [
       {
         "file": "windows.part001",
-        "sha256": "8df26456e1e72206b09bf61dcdd547196f0b7473e2063bafcd1ece583cee4699",
+        "sha256": "7d0afed03cd8edbede41eb012d00450f3c3878332fb67e4a3c01a34468414897",
         "bytes": 33554432
       },
       {
@@ -54,18 +54,18 @@
       },
       {
         "file": "windows.part004",
-        "sha256": "0ca25be1cf943c572596766d32462d625d3d6cf341499d85602dbeaae023e3d5",
+        "sha256": "75d7a17dd415787ce792922168af0a84b466a78283537f0c942ccc04c7b3280d",
         "bytes": 33554432
       },
       {
         "file": "windows.part005",
-        "sha256": "a8d83866037de37e5bca5091d18cccfa127f226bb6e6becb418374baf31a0aa7",
+        "sha256": "2b702503f2812a3444c147b2c841c8bc598081a1777fba965bd6517a08aac213",
         "bytes": 33554432
       },
       {
         "file": "windows.part006",
-        "sha256": "d6652dc48dedd1b8b83db7ed433a007e78954b5ee242830d5e46df800a411e13",
-        "bytes": 7857712
+        "sha256": "e5f8a6afeb4c96fc0ee77129bb622f9f86fde7f44b44b3b361a41a147479329f",
+        "bytes": 7860631
       }
     ],
     "verified_platform": false
