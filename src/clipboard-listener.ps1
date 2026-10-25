@@ -22,7 +22,8 @@ public class ClipboardListener : NativeWindow, IDisposable {
   string modePath;
   int parentPid;
   long lastMode = -1;
-  bool winVEnabled, capturing, blockedV;
+  bool winVEnabled, capturing, blockedV, winVQueued;
+  DateTime heartbeatAt = DateTime.UtcNow, hookAt = DateTime.UtcNow;
   static bool Down(int key) { return GetAsyncKeyState(key) < 0; }
   IntPtr OnKeyboard(int code, IntPtr message, IntPtr data) {
     if (code >= 0) {
@@ -34,13 +35,22 @@ public class ClipboardListener : NativeWindow, IDisposable {
         // An unused key masks the Start-menu gesture without changing other Win shortcuts.
         keybd_event(0xE8, 0, 0, UIntPtr.Zero); keybd_event(0xE8, 0, 2, UIntPtr.Zero);
         if (parentPid > 0) AllowSetForegroundWindow((uint)parentPid);
-        Console.WriteLine("WINV"); Console.Out.Flush();
+        winVQueued = true;
         return new IntPtr(1);
       }
     }
     return CallNextHookEx(keyboardHook, code, message, data);
   }
   void ReadMode() {
+    // Keep the low-level callback short; disk and pipe I/O run on the timer.
+    if (winVQueued) { winVQueued = false; Console.WriteLine("WINV"); Console.Out.Flush(); }
+    if ((DateTime.UtcNow - hookAt).TotalSeconds >= 10) {
+      IntPtr fresh = SetWindowsHookEx(13, keyboardProc, GetModuleHandle(null), 0);
+      if (fresh == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
+      if (keyboardHook != IntPtr.Zero) UnhookWindowsHookEx(keyboardHook);
+      keyboardHook = fresh; hookAt = DateTime.UtcNow;
+    }
+    if ((DateTime.UtcNow - heartbeatAt).TotalSeconds >= 5) { heartbeatAt = DateTime.UtcNow; Console.WriteLine("HEARTBEAT"); Console.Out.Flush(); }
     if (parentPid > 0) {
       try { using (System.Diagnostics.Process parent = System.Diagnostics.Process.GetProcessById(parentPid)) { if (parent.HasExited) { Application.ExitThread(); return; } } }
       catch { Application.ExitThread(); return; }

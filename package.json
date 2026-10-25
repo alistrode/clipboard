@@ -1,6 +1,6 @@
 {
   "name": "clipboard-local",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "本地无限历史剪贴板",
   "private": true,
   "main": "src/main.cjs",

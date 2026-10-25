@@ -101,7 +101,7 @@ try:
     profile=ntpath.join(dev,'profile')
     endpoint=ntpath.join(profile,'test-endpoint.json')
     task='ClipboardHotkeyFix-'+os.environ['GITHUB_RUN_ID']
-    files=['src/main.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/style.css','src/ui/hotkey.js','package.json']
+    files=['src/main.cjs','src/autostart.cjs','src/clipboard-listener.ps1','src/preload.cjs','src/ui/index.html','src/ui/app.js','src/ui/style.css','src/ui/hotkey.js','package.json']
     from zipfile import ZipFile,ZIP_DEFLATED
     patch=TMP/'hotkey-patch.zip'
     with ZipFile(patch,'w',compression=ZIP_DEFLATED,compresslevel=1) as z:
@@ -141,7 +141,7 @@ try:
     [pscustomobject]@{Backup=$backup;Databases=$data;Version=([IO.File]::ReadAllText((Join-Path $app 'package.json'))|ConvertFrom-Json).version}|ConvertTo-Json -Compress
     """.replace('$app=APP;', '$app='+psquote(app)+';').replace('EXE',psquote(exe)).replace('PATCH',psquote(remote_patch)).replace('DEV',psquote(dev)).replace('HASH',psquote(patch_hash)).replace('BACKUPNAME',psquote('before-hotkey-'+os.environ['GITHUB_RUN_ID'])).replace('BACKUP',psquote(r'E:\xxm\clipboard\backups\hotkey-before-'+os.environ['GITHUB_RUN_ID']+'.zip'))
     patched=powershell(code)
-    check('version 1.0.3 installed with source and history backups',patched['Version']=='1.0.3')
+    check('version 1.0.4 installed with source and history backups',patched['Version']=='1.0.4')
     report['backup']=patched['Backup']
     # Read history counts only, never clipboard contents; seed a separate test profile without altering autostart.
     count_script=TMP/'hotkey-count.cjs'
@@ -168,6 +168,20 @@ try:
         return powershell(code).get('value')
     info=bridge('info')
     check('Win+V user-mode takeover ready',info['winVActive'] and info['keyboardReady'])
+    bridge('eval',['manager',"clip.autostart(false)"])
+    check('autostart slider disables actual startup entry',not bridge('info')['autostart'])
+    bridge('eval',['manager',"clip.autostart(true)"])
+    check('autostart slider enables actual startup entry',bridge('info')['autostart'])
+    registered=powershell("[pscustomobject]@{Command=(Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run').ClipboardLocal}|ConvertTo-Json -Compress")
+    check('stable startup name points to installed executable',registered['Command']=='"'+exe+'" --background')
+    report['startup_command']=registered['Command']
+    old_listener=bridge('info')['listenerPid']
+    powershell('Stop-Process -Id '+str(old_listener)+' -Force;$true|ConvertTo-Json')
+    for _ in range(15):
+        time.sleep(1)
+        recovered=bridge('info')
+        if recovered.get('keyboardReady') and recovered.get('listenerPid')!=old_listener:break
+    check('keyboard helper automatically recovers after termination',recovered.get('keyboardReady') and recovered.get('listenerPid')!=old_listener)
     inventory=powershell("@(Get-Process | Where-Object {$_.ProcessName -match 'ditto|copyq|clip|TextInputHost|powertoys'} | Select-Object ProcessName,Id,SessionId)|ConvertTo-Json -Compress")
     report['clipboard_process_inventory']=inventory
     bridge('eval',['manager',"document.getElementById('shortcut').focus()"])
@@ -203,13 +217,15 @@ try:
     bridge('screenshot',['popup',ntpath.join(dev,'winv-popup.png')]);get_file(ntpath.join(dev,'winv-popup.png'),OUT/'winv-popup.png')
     bridge('screenshot',['manager',ntpath.join(dev,'hotkey-manager.png')]);get_file(ntpath.join(dev,'hotkey-manager.png'),OUT/'hotkey-manager.png')
     bridge('quit');time.sleep(1)
-    launch('--show-manager');time.sleep(2)
+    launch('--background');time.sleep(12)
+    powershell(send)
+    time.sleep(1)
     after=history_info();report['history_after']=after['count']
     check('original clipboard history preserved',after['count']>=before['count'])
     check('Win+V is the persisted normal shortcut',after['shortcut']=='Super+V')
     normal=powershell("@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq "+psquote(exe)+" -and $_.MainWindowHandle -ne 0}|Select-Object Id,SessionId,MainWindowHandle)|ConvertTo-Json -Compress")
-    check('updated application normal window remains running',bool(normal))
-    report.update({'status':'passed','version':'1.0.3','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
+    check('exact login arguments start app and actual Win+V opens normal window',bool(normal))
+    report.update({'status':'passed','version':'1.0.4','normal_processes':normal,'executable':exe,'count':len(report['passed'])})
 except Exception as exc:
     report.update({'status':'failed','error':str(exc)})
     raise

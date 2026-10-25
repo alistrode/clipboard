@@ -36,7 +36,7 @@ jobs:
           retention-days: 1
       - name: Connect to authorized Windows 10 and run clipboard project
         shell: bash
-        run: python3 tests/remote-startup-diagnose.py
+        run: python3 tests/remote-hotkey-fix.py
       - name: Save remote evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -6,7 +6,9 @@ const testing=process.argv.includes('--test-mode');
 const dataArg=process.argv.find(a=>a.startsWith('--data-dir='));
 if(dataArg)app.setPath('userData',dataArg.slice(11));
 app.setName('Clipboard Local');
+if(process.platform==='win32')app.setAppUserModelId('ClipboardLocal');
 if(process.platform==='linux')app.commandLine.appendSwitch('enable-features','GlobalShortcutsPortal');
+let keyboardRestartTimer,keyboardHealthTimer,keyboardLastHeartbeat=0,keyboardFailures=0;
 let popup,manager,tray,quitting=false,worker,ready,autostart,timer,lastObserved=null,lastGeneration=0;
 let fault='';const pending=new Map();let serial=0;let clipboardListener,reading=false,readAgain=false,forceAgain=false,ownCopyValue=null;
 let shortcutRecorder=null;
@@ -26,13 +28,15 @@ async function finishShortcutRecording(sender){if(shortcutRecorder!==sender)retu
 const lock=app.requestSingleInstanceLock();if(!lock){app.quit();}else{
 app.on('second-instance',()=>showPopup());
 app.on('window-all-closed',()=>{});
-app.on('before-quit',()=>{quitting=true;clearTimeout(timer);if(clipboardListener)clipboardListener.kill();globalShortcut.unregisterAll();});
+app.on('before-quit',()=>{runtimeLog('quit requested');quitting=true;clearTimeout(timer);clearTimeout(keyboardRestartTimer);clearInterval(keyboardHealthTimer);if(clipboardListener)clipboardListener.kill();globalShortcut.unregisterAll();});
 app.whenReady().then(start).catch(e=>{dialog.showErrorBox('剪贴板启动失败',e.message);app.exit(1);});
 }
 function db(method,...args){return ready.then(()=>new Promise((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject});worker.postMessage({id,method,args});}));}
 function broadcast(type,value){for(const w of [popup,manager])if(w&&!w.isDestroyed())w.webContents.send(type,value);}
-function reportError(e){fault=e.message||String(e);broadcast('status',{error:fault});if(tray)tray.setToolTip('剪贴板 · 保存失败：'+fault);}
+function runtimeLog(event){try{const file=path.join(app.getPath('userData'),'runtime.log');fs.mkdirSync(path.dirname(file),{recursive:true});if(fs.existsSync(file)&&fs.statSync(file).size>1048576)fs.renameSync(file,file+'.previous');fs.appendFileSync(file,new Date().toISOString()+' '+event+'\n');}catch{}}
+function reportError(e){runtimeLog('error '+(e.message||String(e)));fault=e.message||String(e);broadcast('status',{error:fault});if(tray)tray.setToolTip('剪贴板 · 保存失败：'+fault);}
 async function start(){
+  runtimeLog('start version='+app.getVersion()+' pid='+process.pid+' background='+process.argv.includes('--background'));
   worker=new Worker(path.join(__dirname,'db-worker.cjs'),{workerData:{file:path.join(app.getPath('userData'),'history.sqlite')}});
   ready=new Promise((resolve,reject)=>{worker.on('message',m=>{if(m.ready)return resolve();if(m.fatal)return reject(new Error(m.fatal));const p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(new Error(m.error)):p.resolve(m.value);}});worker.on('error',reject);});
   await ready;
@@ -40,7 +44,8 @@ async function start(){
   const appArgs=app.isPackaged?['--background']:[app.getAppPath(),'--background'];
   if(process.argv.includes('--no-sandbox'))appArgs.unshift('--no-sandbox');
   autostart=createAutostart({app,executable:process.execPath,args:appArgs,configHome:process.env.CLIPBOARD_CONFIG_HOME||process.env.XDG_CONFIG_HOME||path.join(os.homedir(),'.config')});
-  if(await db('setting','initialized')!==true){try{autostart.set(true);await db('setting','initialized',true);}catch(e){reportError(e);}}
+  const initialized=await db('setting','initialized')===true;
+  if(!testing||!initialized){try{const saved=await db('setting','autostart');const desired=typeof saved==='boolean'?saved:true;autostart.set(desired);await db('setting','autostart',desired);await db('setting','initialized',true);}catch(e){reportError(e);}}
   installIPC();
   let shortcut=await db('setting','shortcut')||'CommandOrControl+Shift+V';
   try{if(!await registerShortcut(shortcut))reportError(new Error('快捷键被占用，请在管理窗口修改'));}catch(e){reportError(e);}
@@ -49,6 +54,7 @@ async function start(){
   if(process.argv.includes('--show-manager'))await showManager();
   if(!testing){poll();if(process.platform==='win32')startWindowsListener().catch(reportError);}
   if(testing)startTestBridge();
+  runtimeLog('ready autostart='+autostart.get()+' winV='+winVActive+' keyboard='+keyboardReady);
 }
 function createTray(){
   // A transparent PNG is generated locally, independent of platform fonts.
@@ -119,15 +125,17 @@ async function poll(){
 }
 function startWindowsListener(){
   if(keyboardPromise)return keyboardPromise;
+  clearTimeout(keyboardRestartTimer);keyboardReady=false;modeAcknowledged=0;keyboardLastHeartbeat=Date.now();
   const {spawn}=require('node:child_process');
   const script=fs.readFileSync(path.join(__dirname,'clipboard-listener.ps1'),'utf8');
   writeKeyboardMode().catch(reportError);
   let resolveReady,rejectReady;keyboardPromise=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
-  const deadline=setTimeout(()=>rejectReady(Error('Win+V 键盘服务启动超时')),15000);
+  const deadline=setTimeout(()=>{rejectReady(Error('Win+V 键盘服务启动超时'));clipboardListener?.kill();},30000);
   clipboardListener=spawn('powershell.exe',['-NoProfile','-NonInteractive','-STA','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,CLIPBOARD_MODE_FILE:modeFile(),CLIPBOARD_PARENT_PID:String(process.pid)}});
-  let buffer='';clipboardListener.stdout.on('data',chunk=>{buffer+=chunk.toString();let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);if(line==='KEYBOARD_READY'){keyboardReady=true;clearTimeout(deadline);resolveReady();}else if(line.startsWith('MODE ')){modeAcknowledged=Number(line.slice(5));for(const [id,w] of modeWaiters)if(id<=modeAcknowledged){modeWaiters.delete(id);w.resolve();}}else if(line==='WINV'){if(shortcutRecorder!==null){for(const w of [popup,manager])if(w&&!w.isDestroyed()&&w.webContents.id===shortcutRecorder)w.webContents.send('shortcut-captured','Super+V');}else if(winVActive)showPopup();}else if(line==='CHANGED'&&!testing)captureClipboard(true);}});
+  let buffer='';clipboardListener.stdout.on('data',chunk=>{buffer+=chunk.toString();let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);if(line==='KEYBOARD_READY'){keyboardReady=true;keyboardFailures=0;keyboardLastHeartbeat=Date.now();clearTimeout(deadline);resolveReady();if(fault.startsWith('Windows 键盘服务')){fault='';broadcast('status',{error:''});}}else if(line==='HEARTBEAT'){keyboardLastHeartbeat=Date.now();}else if(line.startsWith('MODE ')){modeAcknowledged=Number(line.slice(5));for(const [id,w] of modeWaiters)if(id<=modeAcknowledged){modeWaiters.delete(id);w.resolve();}}else if(line==='WINV'){if(shortcutRecorder!==null){for(const w of [popup,manager])if(w&&!w.isDestroyed()&&w.webContents.id===shortcutRecorder)w.webContents.send('shortcut-captured','Super+V');}else if(winVActive)showPopup();}else if(line==='CHANGED'&&!testing)captureClipboard(true);}});
   clipboardListener.on('error',e=>{clearTimeout(deadline);rejectReady(e);});
-  clipboardListener.on('exit',()=>{keyboardReady=false;clearTimeout(deadline);rejectReady(Error('Windows 键盘服务已退出'));keyboardPromise=null;if(!quitting)reportError(new Error('键盘服务退出，Win+V 接管已释放'));});
+  clipboardListener.on('exit',(code,signal)=>{runtimeLog('keyboard exit code='+code+' signal='+signal);keyboardReady=false;clearTimeout(deadline);rejectReady(Error('Windows 键盘服务已退出'));keyboardPromise=null;clipboardListener=null;clearInterval(keyboardHealthTimer);if(!quitting){reportError(new Error('Windows 键盘服务已退出，正在自动恢复'));keyboardRestartTimer=setTimeout(()=>startWindowsListener().catch(reportError),Math.min(30000,1000*2**Math.min(keyboardFailures++,5)));}});
+  clearInterval(keyboardHealthTimer);keyboardHealthTimer=setInterval(()=>{if(Date.now()-keyboardLastHeartbeat>20000)clipboardListener?.kill();},5000);
   return keyboardPromise;
 }
 function startTestBridge(){
@@ -146,7 +154,7 @@ function startTestBridge(){
       else if(command==='arrange'){popup.setPosition(80,110);manager.setPosition(530,110);value=true;}
       else if(command==='quit'){value=true;setTimeout(()=>app.quit(),100);}
       else if(['list','get','setting','locate'].includes(command))value=await db(command,...args);
-      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:registeredShortcut(await db('setting','shortcut')||'CommandOrControl+Shift+V'),winVActive,keyboardReady};
+      else if(command==='info')value={version:process.versions,autostart:autostart.get(),data:app.getPath('userData'),tray:!!tray,trayBounds:tray?.getBounds(),popupVisible:popup?.isVisible(),managerVisible:manager?.isVisible(),shortcut:registeredShortcut(await db('setting','shortcut')||'CommandOrControl+Shift+V'),winVActive,keyboardReady,listenerPid:clipboardListener?.pid};
       else throw Error('Unknown command');res.setHeader('Content-Type','application/json');res.end(JSON.stringify({value}));
     }catch(e){res.statusCode=500;res.end(JSON.stringify({error:e.message}));}
   });
