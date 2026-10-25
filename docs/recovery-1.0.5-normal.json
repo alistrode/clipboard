@@ -1,0 +1,18 @@
+{
+  "Guards": [
+    {
+      "Parent": 33012,
+      "Pid": 29592,
+      "Alive": true
+    }
+  ],
+  "Databases": [
+    "C:\\Users\\Acer\\AppData\\Roaming\\Clipboard Local\\history.sqlite"
+  ],
+  "MemoryPercent": 83.1,
+  "CPU": 22,
+  "History": {
+    "count": 14,
+    "shortcut": "Super+V"
+  }
+}

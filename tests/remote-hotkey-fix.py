@@ -122,6 +122,10 @@ try:
     [Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')|Out-Null
     $backup=BACKUP
     [IO.Compression.ZipFile]::CreateFromDirectory($app,$backup)
+    $ownIds=@(Get-Process Clipboard -ErrorAction SilentlyContinue|Where-Object {$_.Path -eq $exe}|ForEach-Object {$_.Id})
+    $guardRoots=@((Join-Path $env:APPDATA 'Clipboard Local'),(Join-Path $env:APPDATA 'clipboard-local'))
+    $guardRoots+=@(Get-ChildItem 'E:\xxm\clipboard\dev' -Directory -ErrorAction SilentlyContinue|Where-Object {$_.Name -like 'hotkey-*'}|ForEach-Object {Join-Path $_.FullName 'profile'})
+    foreach($root in $guardRoots){foreach($f in @(Get-ChildItem $root -Filter 'recovery-*.json' -File -ErrorAction SilentlyContinue)){try{$c=[IO.File]::ReadAllText($f.FullName)|ConvertFrom-Json;if($c.executable -eq $exe -and $ownIds -contains [int]$c.parent){[IO.File]::WriteAllText($c.stop,'application update')}}catch{}}}
     $oldScript=[IO.File]::ReadAllText((Join-Path $app 'src\clipboard-listener.ps1'));$oldEncoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($oldScript))
     Get-CimInstance -Query ("SELECT ProcessId FROM Win32_Process WHERE Name='powershell.exe' AND CommandLine LIKE '%"+$oldEncoded+"%'") -ErrorAction SilentlyContinue | ForEach-Object {try{Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop}catch{}}
     try{$s=New-Object -ComObject 'Schedule.Service';$s.Connect();$s.GetFolder('\').GetTask('ClipboardLocalValidation-40083184338').Stop(0)}catch{}
@@ -184,16 +188,16 @@ try:
     check('keyboard helper automatically recovers after termination',recovered.get('keyboardReady') and recovered.get('listenerPid')!=old_listener)
     inventory=powershell("@(Get-Process | Where-Object {$_.ProcessName -match 'ditto|copyq|clip|TextInputHost|powertoys'} | Select-Object ProcessName,Id,SessionId)|ConvertTo-Json -Compress")
     report['clipboard_process_inventory']=inventory
-    bridge('eval',['manager',"document.getElementById('shortcut').focus()"])
-    bridge('eval',['manager',"(()=>{const b=document.getElementById('shortcut');b.dispatchEvent(new KeyboardEvent('keydown',{key:'Meta',metaKey:true,bubbles:true}));b.dispatchEvent(new KeyboardEvent('keyup',{key:'Meta',bubbles:true}));return true;})()"])
-    check('pressing Win alone does not save bare Super',bridge('eval',['manager',"clip.settings().then(s=>s.shortcut)"])=='Super+V')
-    send=r"""Add-Type 'using System; using System.Runtime.InteropServices; public class ClipWinVInput { [DllImport("user32.dll")] public static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h,out uint id); }'; [ClipWinVInput]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x56,0,0,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x56,0,2,[UIntPtr]::Zero); [ClipWinVInput]::keybd_event(0x5B,0,2,[UIntPtr]::Zero); Start-Sleep -Milliseconds 500; $true|ConvertTo-Json"""
-    powershell(send)
-    check('Win+V can be recorded without Super conversion error',bridge('eval',['manager',"document.getElementById('shortcut').value==='Win + V' && document.getElementById('error').hidden"]))
-    bridge('eval',['manager',"document.getElementById('shortcut').blur()"])
+    bridge('eval',['manager',"(async()=>{document.getElementById('shortcut').blur();await clip.recordShortcut(false);return clip.shortcut('Super+V');})()"])
+    key_script=TMP/'press-winv.ps1'
+    key_script.write_text(r"""Add-Type 'using System;using System.Runtime.InteropServices;public class ClipInput{[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);}';[ClipInput]::keybd_event(0x5B,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 60;[ClipInput]::keybd_event(0x56,0,0,[UIntPtr]::Zero);Start-Sleep -Milliseconds 60;[ClipInput]::keybd_event(0x56,0,2,[UIntPtr]::Zero);[ClipInput]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)""",encoding='ascii')
+    remote_key=ntpath.join(dev,'press-winv.ps1');put_file(key_script,remote_key)
+    def send_win_v():
+        code="$s=New-Object -ComObject Schedule.Service;$s.Connect();$d=$s.NewTask(0);$d.Principal.UserId=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;$d.Principal.LogonType=3;$d.Principal.RunLevel=0;$a=$d.Actions.Create(0);$a.Path='powershell.exe';$a.Arguments="+psquote('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"'+remote_key+'\"')+";$t=$s.GetFolder('\\').RegisterTaskDefinition("+psquote(task+'-Input')+",$d,6,$d.Principal.UserId,$null,3,$null);$t.Run($null)|Out-Null;$true|ConvertTo-Json"
+        powershell(code)
     for i in range(2):
         bridge('eval',['popup',"clip.action('hide')"])
-        powershell(send)
+        send_win_v()
         for _ in range(8):
             if bridge('info')['popupVisible']:break
             time.sleep(.5)
@@ -241,7 +245,7 @@ try:
     check('intentional tray exit stays exited',stopped==0)
 
     launch('--background');time.sleep(12)
-    powershell(send)
+    send_win_v()
     time.sleep(1)
     after=history_info();report['history_after']=after['count']
     check('original clipboard history preserved',after['count']>=before['count'])

@@ -1,0 +1,29 @@
+{
+  "version": "1.0.5",
+  "passed": [
+    "independent watchdog ready",
+    "actual Win+V works across many hook renewal intervals",
+    "unexpected whole process-tree exit recovers automatically",
+    "actual Win+V works after whole app recovery",
+    "tray exit stops app and independent guard without relaunch",
+    "startup command is current executable and background mode",
+    "normal configuration starts from login arguments and Win+V opens window",
+    "normal launch retains enabled startup registration"
+  ],
+  "scope": "Acer Windows 11 build 26200; supplied old-branch relay; no OS reboot",
+  "before_pid": 4632,
+  "after_pid": 36288,
+  "guard_pid": 30684,
+  "startup_command": "\"E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe\" --background",
+  "normal": {
+    "Windows": [
+      {
+        "Id": 33012,
+        "SessionId": 1,
+        "MainWindowHandle": 11863316
+      }
+    ],
+    "Command": "\"E:\\xxm\\clipboard\\release\\win10-40083184338\\clipboard-windows-x64\\Clipboard.exe\" --background"
+  },
+  "status": "passed"
+}
