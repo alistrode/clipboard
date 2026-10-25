@@ -124,6 +124,7 @@ try:
     evaluate('manager', "clip.shortcut('CommandOrControl+Shift+V')")
     evaluate('manager', "clip.shortcut('Super+V')")
     check('Win+V native takeover service ready', call('info')['winVActive'] and call('info')['keyboardReady'])
+    time.sleep(12)  # Cross a hook renewal interval before testing the real key.
     evaluate('popup', "clip.action('hide')")
     subprocess.run(['powershell.exe','-NoProfile','-Command',r'''Add-Type 'using System; using System.Runtime.InteropServices; public class WinVInput { [DllImport("user32.dll")] public static extern void keybd_event(byte key,byte scan,uint flags,UIntPtr extra); }'; [WinVInput]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x56,0,0,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x56,0,2,[UIntPtr]::Zero); [WinVInput]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)'''],check=True)
     wait_for(lambda: call('info')['popupVisible'])

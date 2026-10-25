@@ -45,10 +45,12 @@ public class ClipboardListener : NativeWindow, IDisposable {
     // Keep the low-level callback short; disk and pipe I/O run on the timer.
     if (winVQueued) { winVQueued = false; Console.WriteLine("WINV"); Console.Out.Flush(); }
     if ((DateTime.UtcNow - hookAt).TotalSeconds >= 10) {
-      IntPtr fresh = SetWindowsHookEx(13, keyboardProc, GetModuleHandle(null), 0);
-      if (fresh == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
+      // Remove first: Windows may reuse a hook handle for the same callback.
       if (keyboardHook != IntPtr.Zero) UnhookWindowsHookEx(keyboardHook);
-      keyboardHook = fresh; hookAt = DateTime.UtcNow;
+      keyboardHook = SetWindowsHookEx(13, keyboardProc, GetModuleHandle(null), 0);
+      if (keyboardHook == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
+      if (!Down(0x56)) blockedV = false;
+      hookAt = DateTime.UtcNow;
     }
     if ((DateTime.UtcNow - heartbeatAt).TotalSeconds >= 5) { heartbeatAt = DateTime.UtcNow; Console.WriteLine("HEARTBEAT"); Console.Out.Flush(); }
     if (parentPid > 0) {
