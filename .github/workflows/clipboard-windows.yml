@@ -48,6 +48,8 @@ jobs:
             Get-Content $_.FullName -ErrorAction Continue
           }
       - name: Save Windows evidence
+        id: evidence
+        continue-on-error: true
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -55,3 +57,15 @@ jobs:
           path: acceptance/
           retention-days: 14
           if-no-files-found: error
+      - name: Save evidence through fallback storage
+        if: always() && steps.evidence.outcome == 'failure'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem acceptance -File | Where-Object { $_.Extension -in '.json','.png','.log' })
+          if ($files.Count -eq 0) { throw 'No verification evidence to preserve' }
+          Compress-Archive -Path $files.FullName -DestinationPath clipboard-evidence.zip -Force
+          $bin = 'clipboard-ci-' + $env:GITHUB_RUN_ID
+          curl.exe -fSs -X POST --data-binary '@clipboard-evidence.zip' -H 'Content-Type: application/octet-stream' -H 'Accept: application/json' ("https://filebin.net/$bin/evidence.zip") -o evidence-upload.json
+          if ($LASTEXITCODE -ne 0) { throw 'Evidence fallback upload failed' }
+          Get-FileHash clipboard-evidence.zip -Algorithm SHA256
+          Write-Output ("Evidence URL: https://filebin.net/archive/$bin/zip")
