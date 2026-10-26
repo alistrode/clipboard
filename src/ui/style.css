@@ -8,3 +8,5 @@
 /* Keep previews inside the fixed virtual row; full text remains in storage. */
 .card{min-width:0;overflow:hidden}.snippet{min-width:0;max-width:100%;flex:1;overflow-wrap:anywhere;line-height:24px;max-height:48px;-webkit-line-clamp:2}
 .manager .snippet{max-height:24px}.manager .card{padding-right:0}
+
+.view-preference{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);flex:none;background:#fafbfc;font-size:13px}.view-preference .switch{width:50px;height:26px;flex:none}.view-preference .thumb{width:18px;height:18px;top:3px;left:3px}.view-preference .switch[aria-checked=true] .thumb{transform:translateX(24px)}.view-preference small{font-size:11px;color:#626a74;flex:1;text-align:right}.manager .view-preference{padding:10px 23px;background:#fff;font-size:14px}.manager .view-preference small{font-size:12px}

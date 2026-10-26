@@ -25,3 +25,8 @@ GitHub Windows 补充验收：2026-10-24，运行 40079722838 通过。采用相
 指定 Acer 电脑补充验收：2026-10-24 通过，真实系统 build 26200（Windows 11），不是 Win10。19 项检查、实际截图和正常采集进程确认见 docs/ACER-NATIVE-ACCEPTANCE.md。
 
 1.0.1 快捷键修复：6 项自动测试、本地窗口录入检查、GitHub Windows Server 完整包检查（40091443686）与指定 Acer 电脑更新及真实 F8 唤出（40091443746）通过。详见 docs/HOTKEY-1.0.1.md。
+
+
+2026-10-26 Windows 10 22H2 补充验证：指定远端电脑完成 19 项自动检查，覆盖非激活小窗口保留输入焦点与选区、鼠标点选插入及选区替换、搜索后恢复输入目标、目标改变时拒绝自动粘贴、两个界面的模式同步/点击/左右滑动、滚动锚点恢复和进程重启后模式保留。截图已检查，见 docs/focus-popup.png、docs/focus-manager.png、docs/focus-input.png；截图只含生成的测试内容。另有 8 项现有本地测试通过。
+
+已将本次源码同步到指定远端的 dev/src 和正在使用的 release/resources/app/src，并检查普通启动的 winV=true、keyboard=true；这些状态不等同于实体键盘按键验收。本次不扩展 Linux 自动粘贴或实体开关机验收结论。仓库既有 deliverables 分块运行包未重新构建，本次提交更新源码与验证说明。
