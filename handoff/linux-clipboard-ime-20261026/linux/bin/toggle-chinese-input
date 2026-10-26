@@ -1,0 +1,18 @@
+#!/bin/sh
+export XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+exec 9>"$XDG_RUNTIME_DIR/direct-input-toggle.lock"
+flock -n 9 || exit 0
+current=$(ibus engine 2>/dev/null || true)
+case "$current" in
+  libpinyin) target=xkb:us::eng ;;
+  *) target=libpinyin ;;
+esac
+ibus engine "$target" >/dev/null 2>&1 || true
+actual=$(ibus engine 2>/dev/null || true)
+if [ "$actual" = "$target" ]; then
+ printf '%s\n' "$target" >"$XDG_RUNTIME_DIR/direct-input-mode"
+ printf '%s %s -> %s\n' "$(date -Iseconds)" "$current" "$target" >>/home/versiona/xxm/chinese-input/dev/direct-toggle.log
+else
+ printf '%s failed %s -> %s\n' "$(date -Iseconds)" "$current" "$target" >>/home/versiona/xxm/chinese-input/dev/direct-toggle.log
+ exit 1
+fi

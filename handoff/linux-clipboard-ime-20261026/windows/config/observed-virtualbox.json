@@ -1,0 +1,14 @@
+{
+    "vm":  "Ubuntu-24.04-Version-C",
+    "virtualbox_version":  "7.2.16r174877",
+    "global_keyboard_auto_capture":  "Value: true",
+    "vm_keyboard_auto_capture":  "Value: true",
+    "explicit_host_key_combination":  "No value set!",
+    "deployed_listener":  "I:\\xxm\\clipboard\\release\\resources\\app\\src\\clipboard-listener.ps1",
+    "source_contains_added_scan_code_route":  false,
+    "source_contains_existing_keybd_event":  true,
+    "backups":  [
+                    "clipboard-keyboard-before-20261026_025804.zip",
+                    "clipboard-keyboard-before-route-20261026_031035.zip"
+                ]
+}

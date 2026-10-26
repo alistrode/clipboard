@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard Local
+Name[zh_CN]=剪贴板
+Comment=本地剪贴板历史 · Win+V
+Exec=/home/versiona/.local/bin/clipboard-local
+Terminal=false
+Categories=Utility;

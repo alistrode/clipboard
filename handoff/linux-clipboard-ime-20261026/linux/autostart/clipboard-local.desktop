@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Clipboard Local
+Comment=Local clipboard history
+Exec="/home/versiona/xxm/clipboard/release/clipboard-linux-x64/clipboard" "--no-sandbox" "--background"
+Terminal=false
+X-GNOME-Autostart-enabled=true

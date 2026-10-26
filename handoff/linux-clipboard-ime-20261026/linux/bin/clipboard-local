@@ -1,0 +1,3 @@
+#!/bin/sh
+unset ELECTRON_RUN_AS_NODE
+exec /home/versiona/xxm/clipboard/release/clipboard-linux-x64/start.sh --no-sandbox --ozone-platform=x11 --disable-features=GlobalShortcutsPortal --data-dir=/home/versiona/xxm/clipboard/dev/profile "$@"
