@@ -30,3 +30,13 @@ Node.js 24+；`npm ci` 后运行 `npm run dev` 或 `Start-Dev.cmd` / `./start-de
 测试：`npm test`。平台实际验收范围见 VALIDATION.md。
 
 Windows 1.0.2：Win+V 由本程序用户态键盘服务接管，只处理 Win+V，退出本程序后释放。录入时单独按 Win/Ctrl/Alt/Shift 不会保存残缺的修饰键；完整 Win+V 可直接录入。
+
+## Windows 与 Linux 的快捷键处理
+
+| 平台 | 实际入口与行为 | 生效范围 |
+| --- | --- | --- |
+| Windows | src/clipboard-listener.ps1 使用 Windows 低级键盘钩子接管 Win+V，吞掉对应 V 事件并通知 src/main.cjs 打开小窗口；主进程负责就绪确认、心跳检查及键盘服务恢复。src/recovery.cjs 和 src/recovery-worker.cjs 为当前远端实际使用的自带进程恢复实现。 | 运行期间接管；退出后释放，不永久禁用系统快捷键。指定 VirtualBox 的 Ubuntu-24.04-Version-C 窗口在前台时放行到虚拟机，防止宿主机抢走组合键。 |
+| Linux X11 | src/main.cjs 通过 Electron globalShortcut 注册应用快捷键，不加载或运行 Windows 钩子。已部署启动包装脚本和 GNOME 配置快照位于 handoff/linux-clipboard-ime-20261026/linux/。 | GNOME 系统组合键冲突由桌面配置处理，不能用 Windows 的拦截机制代替。快照中的 Super+V 是现场设置，干净配置仍使用默认 Ctrl+Shift+V。 |
+| Linux Wayland | 由 Electron GlobalShortcutsPortal 与桌面门户提供的能力处理；不使用 Win32 接口。 | 是否允许注册、后台剪贴板访问取决于桌面及门户，未新增可靠性验收结论。 |
+
+Windows 当前活动源码已经同步到本分支的 src/，不再仅保留在交接快照中。Linux 的现有现场脚本和配置快照继续保留原路径，属于该机器的部署资料，不会由启动器自动改写其他机器的 GNOME/IBus 设置。Linux 实体快捷键的未完成验收状态仍见交接说明。

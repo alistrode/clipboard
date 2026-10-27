@@ -1,35 +1,28 @@
 # 剪贴板项目交付
 
-项目长期分支：projects/clipboard。源码和 Windows x64 / Linux x64 运行包在同一分支维护。
+长期分支：projects/clipboard。Windows、Linux 共用完整 src/ 源码；平台行为差异见 README.md。
 
-## 完整源码
+## 当前完整运行包
 
-src/、scripts/、tests/、package.json、package-lock.json、MIT LICENSE、THIRD-PARTY.md 及相关文档。开发模式：安装 Node.js 24+，执行 npm ci 后双击 Start-Dev.cmd，或运行 ./start-dev.sh。构建入口 Build.cmd / npm run build。
+2026-10-27 已同步 Windows 远端活动源码，包括 Win+V 接管、虚拟机前台放行、自带恢复守护、原光标粘贴和界面模式切换。两个既有平台包均已重新组装，沿用各自原有 Electron 运行时，包内完整源码与本分支一致。
 
-## Windows 10 x64 包
+| 平台 | 原始归档 | 字节数 | 顺序分块 |
+| --- | --- | ---: | --- |
+| Windows x64 | clipboard-windows-x64.zip | 158484769 | windows.part001 至 windows.part005 |
+| Linux x64 | clipboard-linux-x64.tar.gz | 123389301 | linux.part001 至 linux.part004 |
 
-仓库中 deliverables/windows.part001 至 windows.part006 为完整 ZIP 的顺序分块。原始包 clipboard-windows-x64.zip 为 175625832 字节，SHA-256：
+完整检出后，Windows 运行 Start-Windows.cmd，Linux 运行 Start-Linux.sh。启动器会拼接、校验、解压分块；包内包含 Electron，不要求系统安装 Node。Linux 仍需正常桌面运行库。缓存 .runtime 已存在时启动器会复用它；如更新已有检出目录，应先退出旧程序并将旧缓存移出后再启动，以便使用当前分块。不要移动或删除用户数据目录。
 
-7fdb320d80e193dabd915dda4385bf43b1b490a1fea1617804dbb21428ba62e4
+## 校验与验证范围
 
-完整下载并解压该分支后，双击根目录 Start-Windows.cmd。脚本自动拼接、校验、解压到当前目录 .runtime/，启动 Clipboard.exe；包含 Electron 运行时，不要求系统 Node 或 Python。后续启动直接复用已解压运行时。
+clipboard-windows-x64.zip：
+055cb23542153b05824c1b0fcb1ffe71d0ed4704ee6bb4a32404ed93d1201a62
 
-Windows 包已完成官方 Windows x64 运行时组装、PE 格式及全部文件哈希核对；尚未 Windows 10 实机运行，不能视为通过 Win10 兼容性、自启、托盘及剪贴板通知验收。
+clipboard-linux-x64.tar.gz：
+c1e54a3e13690a418a53b4f2ed1c34dd53877a57668ae52eed4cf83f8db08918
 
-## Linux x64 包
+分块的大小、校验值及归档信息见 deliverables/manifest.json。重新组装后已检查完整源码一致性、归档可读性及分块还原完整性；Windows 本次同步的 src/ 与已运行的指定远端源码逐文件一致。源代码现有 8 项测试通过。
 
-仓库中 deliverables/linux.part001 至 linux.part005 为完整 TAR.GZ 的顺序分块。原始包 clipboard-linux-x64.tar.gz 为 134978920 字节，SHA-256：
+实际平台验收范围见 VALIDATION.md。19 项光标/模式检查来自指定 Windows 10 远端；本次归档组装不新增 Linux、Wayland、实体快捷键、重启或开关机验收结论。Linux 现场 GNOME、启动脚本和输入法配置快照保留在 handoff/，既有未完成事项仍有效。
 
-475e2c1c51967bc80d0784ecc81c8f720d3f5b4c460a1d8d87a12fd97ce5ca7f
-
-完整下载并解压该分支后运行 ./Start-Linux.sh。脚本自动拼接、校验、解压并启动，包含 Electron，不要求系统 Node 或 Python；需要正常桌面所需系统库。受限云端验收时显式传入 --no-sandbox，仅用于该测试环境，不会全局更改系统沙箱设置。
-
-已经从 GitHub 下载完整交付包，逐文件核对源码和两平台运行包，并在干净 Linux 目录实际执行一键启动。证据见 docs/ 和 VALIDATION.md；Linux 实机开关机、Wayland、Windows 实机不在已通过范围内。
-
-## 包含与排除
-
-运行包包含应用、运行时、必要库、资源及许可证；未包含用户数据库、凭据、原始运行日志、开发缓存和 node_modules。运行包以分块形式存储以符合 GitHub 单文件限制，启动脚本自动恢复，无须人工拼接或补丁。
-
-2026-10-24 补充：GitHub Windows Server 2022 运行验收已通过，根目录启动器的 PowerShell 兼容问题已修复。记录及截图见 docs/WINDOWS-ACCEPTANCE.md；Windows 10 实机仍未验收。
-
-1.0.1 快捷键修复：取消 Ctrl/Alt 强制条件，支持单键与 Shift、Win 等组合键录入。指定 Acer 电脑已更新，A、F8、Shift+F8、Win+Shift+F8、Escape 保存通过，真实 F8 唤出通过，历史记录与原快捷键偏好保留。证据见 docs/HOTKEY-1.0.1.md。
+运行包没有包含用户历史数据库、授权密钥、私密状态或原始调试日志。

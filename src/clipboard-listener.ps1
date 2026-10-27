@@ -16,19 +16,31 @@ public class ClipboardListener : NativeWindow, IDisposable {
   [DllImport("user32.dll")] static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
   [DllImport("user32.dll")] static extern bool AllowSetForegroundWindow(uint processId);
   [DllImport("kernel32.dll", CharSet=CharSet.Auto)] static extern IntPtr GetModuleHandle(string name);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder title, int size);
+  static bool GuestOwnsWinV() {
+    uint pid; GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+    try { using (var p = System.Diagnostics.Process.GetProcessById((int)pid)) {
+      var title = new System.Text.StringBuilder(512); GetWindowText(GetForegroundWindow(), title, 512); return p.ProcessName.Equals("VirtualBoxVM", StringComparison.OrdinalIgnoreCase) && title.ToString().Contains("Ubuntu-24.04-Version-C");
+    }} catch { return false; }
+  }
   KeyboardProc keyboardProc;
   IntPtr keyboardHook;
   Timer modeTimer;
   string modePath;
   int parentPid;
   long lastMode = -1;
-  bool winVEnabled, capturing, blockedV, winVQueued;
+  bool winVEnabled, capturing, blockedV, winVQueued, guestWinOrigin;
   DateTime heartbeatAt = DateTime.UtcNow, hookAt = DateTime.UtcNow;
   static bool Down(int key) { return GetAsyncKeyState(key) < 0; }
   IntPtr OnKeyboard(int code, IntPtr message, IntPtr data) {
     if (code >= 0) {
       KeyboardData key = (KeyboardData)Marshal.PtrToStructure(data, typeof(KeyboardData));
       int msg = message.ToInt32(); bool pressed = msg == 0x100 || msg == 0x104; bool released = msg == 0x101 || msg == 0x105;
+      if ((key.Key == 0x5B || key.Key == 0x5C) && pressed) guestWinOrigin = GuestOwnsWinV();
+      if ((key.Key == 0x5B || key.Key == 0x5C) && released) guestWinOrigin = false;
+      if (key.Key == 0x56 && pressed && (Down(0x5B) || Down(0x5C)) && (guestWinOrigin || GuestOwnsWinV())) { blockedV = false; return CallNextHookEx(keyboardHook, code, message, data); }
       if (key.Key == 0x56 && blockedV) { if (released) blockedV = false; return new IntPtr(1); }
       if (key.Key == 0x56 && pressed && (winVEnabled || capturing) && (Down(0x5B) || Down(0x5C)) && !Down(0x10) && !Down(0x11) && !Down(0x12)) {
         blockedV = true;

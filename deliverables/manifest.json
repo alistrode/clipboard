@@ -1,73 +1,67 @@
 {
-  "linux": {
-    "archive": "clipboard-linux-x64.tar.gz",
-    "sha256": "e45dcacdada0370efcc08bb6885cf5e1e35089f00d6af06942ddd59e9d36dd1e",
-    "bytes": 134985653,
-    "parts": [
-      {
-        "file": "linux.part001",
-        "sha256": "10937abc3b96ba33f562ee04b8baa2cea6407899505ab6d5715f3d6c36fd13b6",
-        "bytes": 33554432
-      },
-      {
-        "file": "linux.part002",
-        "sha256": "f57bb6da0f1b104fb44dc07f0bb56aa9e47071b696ea6b921288e319d82f9deb",
-        "bytes": 33554432
-      },
-      {
-        "file": "linux.part003",
-        "sha256": "75da9949b4f01dec171be29348a8aa7f0effb7342cccd972202d67a76956a78a",
-        "bytes": 33554432
-      },
-      {
-        "file": "linux.part004",
-        "sha256": "33fd41c5b6b9bd8d99bc5d3b1a0e60fa42efe8a3f7e04fa1e85aa56885f33eb8",
-        "bytes": 33554432
-      },
-      {
-        "file": "linux.part005",
-        "sha256": "411b30ea0ce9364ecfad75423d620b3e448ac294872878456e6ec3765333fe7c",
-        "bytes": 767925
-      }
-    ],
-    "verified_platform": false
-  },
   "windows": {
     "archive": "clipboard-windows-x64.zip",
-    "sha256": "edc36f6e45d685783291f410a18b403a5dc4e01520393276612aa4faffe2b756",
-    "bytes": 175632830,
+    "sha256": "055cb23542153b05824c1b0fcb1ffe71d0ed4704ee6bb4a32404ed93d1201a62",
+    "bytes": 158484769,
     "parts": [
       {
         "file": "windows.part001",
-        "sha256": "28993bc0653c92ac0b9133b061c4829a6339918f9404a2738bd3c1038baaf1ef",
+        "sha256": "0ddadc3861eec9cdc971866f535767f5b780981a7e59ecbdc1b58a7925f9c4cf",
         "bytes": 33554432
       },
       {
         "file": "windows.part002",
-        "sha256": "8ecf242c1a3f52d22224898be16f06287da678658faf3cbedaf5c6ac32ba986f",
+        "sha256": "f48f982b67ba90b63810ce64592097cc785393c32c0019373cd399d0c0064a7b",
         "bytes": 33554432
       },
       {
         "file": "windows.part003",
-        "sha256": "16615b5a8a25652817adbc8c5285476887b9acababd2e6797aee16e5eb1c34ad",
+        "sha256": "b90866e799115aaaa44ba6cf06dcb1af9b94b8b31a5c8e7632e10e6ef41a44cd",
         "bytes": 33554432
       },
       {
         "file": "windows.part004",
-        "sha256": "79f83065a52c05d8defa316aed7284832e68b29a09dda947382ba566a7a3e743",
+        "sha256": "977a1d970c122a6b9c7f94b883a1d4c4276e99300d7bf76b33ff404ada9d53bb",
         "bytes": 33554432
       },
       {
         "file": "windows.part005",
-        "sha256": "9903335dbf0f8c1bff9c1547f0a55613afb6e883096c859676a9c0b43459ba5b",
+        "sha256": "03ee03b2d2737e94014761b0397fa1d1d6a346828f4f42a1a2f21ce503d0f1ad",
+        "bytes": 24267041
+      }
+    ],
+    "verified_platform": false,
+    "source_snapshot": "current remote Windows src synchronized 2026-10-27; Linux uses platform guards",
+    "validation": "assembled-source equality and archive integrity; see VALIDATION.md for actual platform checks"
+  },
+  "linux": {
+    "archive": "clipboard-linux-x64.tar.gz",
+    "sha256": "c1e54a3e13690a418a53b4f2ed1c34dd53877a57668ae52eed4cf83f8db08918",
+    "bytes": 123389301,
+    "parts": [
+      {
+        "file": "linux.part001",
+        "sha256": "05b18d709d301c2f5993ce953e1d2212b0abed7b4de26727aaff1d1ddcd74557",
         "bytes": 33554432
       },
       {
-        "file": "windows.part006",
-        "sha256": "9b5e62a3a63a65fbdab008e32d418959871a3a712a6c44e7b2be12c372d6b493",
-        "bytes": 7860670
+        "file": "linux.part002",
+        "sha256": "369ceeed2c385a820ce6919c2fca3ceb8dd766991eb054b667ed0621c366fba0",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part003",
+        "sha256": "fda25898c1b4f87fcefb3a3372bed1347c5ccefc8dcee5d89909501650ea3f29",
+        "bytes": 33554432
+      },
+      {
+        "file": "linux.part004",
+        "sha256": "69bbbd455cca1e2d6ae0180c9ab19d3f08f5fb3c717b86ec0d6e56d9d9d8bd82",
+        "bytes": 22726005
       }
     ],
-    "verified_platform": false
+    "verified_platform": false,
+    "source_snapshot": "current remote Windows src synchronized 2026-10-27; Linux uses platform guards",
+    "validation": "assembled-source equality and archive integrity; see VALIDATION.md for actual platform checks"
   }
 }

@@ -29,4 +29,6 @@ GitHub Windows 补充验收：2026-10-24，运行 40079722838 通过。采用相
 
 2026-10-26 Windows 10 22H2 补充验证：指定远端电脑完成 19 项自动检查，覆盖非激活小窗口保留输入焦点与选区、鼠标点选插入及选区替换、搜索后恢复输入目标、目标改变时拒绝自动粘贴、两个界面的模式同步/点击/左右滑动、滚动锚点恢复和进程重启后模式保留。截图已检查，见 docs/focus-popup.png、docs/focus-manager.png、docs/focus-input.png；截图只含生成的测试内容。另有 8 项现有本地测试通过。
 
-已将本次源码同步到指定远端的 dev/src 和正在使用的 release/resources/app/src，并检查普通启动的 winV=true、keyboard=true；这些状态不等同于实体键盘按键验收。本次不扩展 Linux 自动粘贴或实体开关机验收结论。仓库既有 deliverables 分块运行包未重新构建，本次提交更新源码与验证说明。
+已将本次源码同步到指定远端的 dev/src 和正在使用的 release/resources/app/src，并检查普通启动的 winV=true、keyboard=true；这些状态不等同于实体键盘按键验收。本次不扩展 Linux 自动粘贴或实体开关机验收结论。上一提交仅更新源码；2026-10-27 的平台同步提交已用完整当前源码重新组装两个既有分块运行包，运行时沿用原包。
+
+2026-10-27 平台源码同步：通过已授权连接重新读取 Windows 远端当前活动 src/，逐文件比较后补齐 clipboard-listener.ps1 的 VirtualBox 前台放行逻辑，以及 recovery.cjs、recovery-worker.cjs 的自带恢复实现。其余运行源码与上一提交一致；未修改远端运行文件、快捷键配置或数据库。Linux 仍走 Electron 注册路径，现有 GNOME/启动包装快照原样保留，不将 Windows 钩子的验收结论扩展到 Linux。
