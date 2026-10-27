@@ -40,3 +40,6 @@ Windows 1.0.2：Win+V 由本程序用户态键盘服务接管，只处理 Win+V�
 | Linux Wayland | 由 Electron GlobalShortcutsPortal 与桌面门户提供的能力处理；不使用 Win32 接口。 | 是否允许注册、后台剪贴板访问取决于桌面及门户，未新增可靠性验收结论。 |
 
 Windows 当前活动源码已经同步到本分支的 src/，不再仅保留在交接快照中。Linux 的现有现场脚本和配置快照继续保留原路径，属于该机器的部署资料，不会由启动器自动改写其他机器的 GNOME/IBus 设置。Linux 实体快捷键的未完成验收状态仍见交接说明。
+
+
+Linux 快捷键与输入法的最新验收状态和防误判规则见 [Linux 验收交接](handoff/linux-clipboard-ime-20261026/linux/ACCEPTANCE.md)。
