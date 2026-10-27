@@ -46,6 +46,7 @@ async function start(){
   worker=new Worker(path.join(__dirname,'db-worker.cjs'),{workerData:{file:path.join(app.getPath('userData'),'history.sqlite')}});
   ready=new Promise((resolve,reject)=>{worker.on('message',m=>{if(m.ready)return resolve();if(m.fatal)return reject(new Error(m.fatal));const p=pending.get(m.id);if(p){pending.delete(m.id);m.error?p.reject(new Error(m.error)):p.resolve(m.value);}});worker.on('error',reject);});
   await ready;
+  inputTarget.warmup();
   worker.on('error',e=>{for(const p of pending.values())p.reject(e);pending.clear();reportError(e);});
   const appArgs=app.isPackaged?['--background']:[app.getAppPath(),'--background'];
   if(process.argv.includes('--no-sandbox'))appArgs.unshift('--no-sandbox');
@@ -92,11 +93,11 @@ async function makeWindow(kind){
 async function showPopup(){
   if(popupOpening||pasteBusy)return;popupOpening=true;
   try{
-    if(!popup?.isVisible())await inputTarget.capture();
+    if(!popup?.isVisible()){try{await inputTarget.capture();}catch(e){inputTarget.clear();reportError(e);}}
     if(!popup||popup.isDestroyed())popup=await makeWindow('popup');
     if(process.platform==='win32'){popup.setFocusable(false);popup.showInactive();}
     else{popup.show();popup.focus();}
-    popup.webContents.send('shown');
+    popup.webContents.send('shown');runtimeLog('popup shown');
   }catch(e){reportError(e);}finally{popupOpening=false;}
 }
 async function showManager(){try{inputTarget.clear();popup?.hide();if(!manager||manager.isDestroyed())manager=await makeWindow('manager');manager.show();manager.focus();manager.webContents.send('shown');}catch(e){reportError(e);}}
@@ -169,7 +170,7 @@ function startWindowsListener(){
   let resolveReady,rejectReady;keyboardPromise=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
   const deadline=setTimeout(()=>{rejectReady(Error('Win+V 键盘服务启动超时'));clipboardListener?.kill();},30000);
   clipboardListener=spawn('powershell.exe',['-NoProfile','-NonInteractive','-STA','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,CLIPBOARD_MODE_FILE:modeFile(),CLIPBOARD_PARENT_PID:String(process.pid)}});
-  let buffer='';clipboardListener.stdout.on('data',chunk=>{buffer+=chunk.toString();let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);if(line==='KEYBOARD_READY'){keyboardReady=true;keyboardFailures=0;keyboardLastHeartbeat=Date.now();clearTimeout(deadline);resolveReady();if(fault.startsWith('Windows 键盘服务')){fault='';broadcast('status',{error:''});}}else if(line==='HEARTBEAT'){keyboardLastHeartbeat=Date.now();}else if(line.startsWith('MODE ')){modeAcknowledged=Number(line.slice(5));for(const [id,w] of modeWaiters)if(id<=modeAcknowledged){modeWaiters.delete(id);w.resolve();}}else if(line==='WINV'){if(shortcutRecorder!==null){for(const w of [popup,manager])if(w&&!w.isDestroyed()&&w.webContents.id===shortcutRecorder)w.webContents.send('shortcut-captured','Super+V');}else if(winVActive)showPopup();}else if(line==='CHANGED'&&!testing)captureClipboard(true);}});
+  let buffer='';clipboardListener.stdout.on('data',chunk=>{buffer+=chunk.toString();let end;while((end=buffer.indexOf('\n'))>=0){const line=buffer.slice(0,end).trim();buffer=buffer.slice(end+1);if(line==='KEYBOARD_READY'){keyboardReady=true;keyboardFailures=0;keyboardLastHeartbeat=Date.now();clearTimeout(deadline);resolveReady();if(fault.startsWith('Windows 键盘服务')){fault='';broadcast('status',{error:''});}}else if(line==='HEARTBEAT'){keyboardLastHeartbeat=Date.now();}else if(line.startsWith('MODE ')){modeAcknowledged=Number(line.slice(5));for(const [id,w] of modeWaiters)if(id<=modeAcknowledged){modeWaiters.delete(id);w.resolve();}}else if(line==='WINV'){runtimeLog('WinV received');if(shortcutRecorder!==null){for(const w of [popup,manager])if(w&&!w.isDestroyed()&&w.webContents.id===shortcutRecorder)w.webContents.send('shortcut-captured','Super+V');}else if(winVActive)showPopup();}else if(line==='CHANGED'&&!testing)captureClipboard(true);}});
   clipboardListener.on('error',e=>{clearTimeout(deadline);rejectReady(e);});
   clipboardListener.stderr.on('data',()=>{});
   clipboardListener.on('exit',(code,signal)=>{runtimeLog('keyboard exit code='+code+' signal='+signal);keyboardReady=false;clearTimeout(deadline);rejectReady(Error('Windows 键盘服务已退出'));keyboardPromise=null;clipboardListener=null;clearInterval(keyboardHealthTimer);if(!quitting){reportError(new Error('Windows 键盘服务已退出，正在自动恢复'));keyboardRestartTimer=setTimeout(()=>startWindowsListener().catch(reportError),Math.min(30000,1000*2**Math.min(keyboardFailures++,5)));}});

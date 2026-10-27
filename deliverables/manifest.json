@@ -1,8 +1,8 @@
 {
   "windows": {
     "archive": "clipboard-windows-x64.zip",
-    "sha256": "2c4cecde8e77e817e55fc173785dfee955c0c25e83a522fa11ac39d54ad7728f",
-    "bytes": 158487748,
+    "sha256": "fd6abdc163a178cf98f34208d2e577cef62ed61532435e9fa7e158dcfe6d9cc2",
+    "bytes": 158487999,
     "parts": [
       {
         "file": "windows.part001",
@@ -26,8 +26,8 @@
       },
       {
         "file": "windows.part005",
-        "sha256": "89e9359acd11e72e4906c3107f680bd08f98916ade3ad514e313b0d660aa34e5",
-        "bytes": 24270020
+        "sha256": "037615ae123e6965b351323a514e2e06923fd0596ff80873d9c60f3d5b0bc092",
+        "bytes": 24270271
       }
     ],
     "verified_platform": false,
@@ -36,12 +36,12 @@
   },
   "linux": {
     "archive": "clipboard-linux-x64.tar.gz",
-    "sha256": "f1c34907ac70d209f74bb3f5544e56accbdb517f53702f8edb12746ad1aec585",
-    "bytes": 123347088,
+    "sha256": "ee1d1db83c41243a7d70cdc8306316e445540650ad0f9af0406e9215b7479b98",
+    "bytes": 123347317,
     "parts": [
       {
         "file": "linux.part001",
-        "sha256": "29f1d270285c569d50fc3e6ba1ff5061c551ab49eb23c2ae0e2bb4e224c8b47e",
+        "sha256": "746fc04440a2b5f33a615b2e21ea5f80f5a1a2831a424b6c55937c80ccac7e4f",
         "bytes": 33554432
       },
       {
@@ -56,8 +56,8 @@
       },
       {
         "file": "linux.part004",
-        "sha256": "6d3ff399594a39943a56b1c14c0fe9b71faea13a822cc5a96e3da44e77b0c8bf",
-        "bytes": 22683792
+        "sha256": "696ed45982e8b9d4ba2c7fec3cc652bd13f2f6c5e8691fba0d3e535b6033b406",
+        "bytes": 22684021
       }
     ],
     "verified_platform": false,

@@ -15,6 +15,7 @@ function createInputTarget(){
     return new Promise((resolve,reject)=>{const timer=setTimeout(()=>{pending.delete(id);reject(Error('输入目标确认超时；内容已复制，请手动粘贴'));},5000);pending.set(id,{resolve,reject,timer});child.stdin.write(JSON.stringify({id,method,...args})+'\n');});
   }
   return {
+    warmup(){if(process.platform==='win32')start();},
     async capture(){target=null;if(process.platform!=='win32')return;target=await request('capture');},
     async paste(){if(process.platform!=='win32')throw Error('此平台已复制内容，请返回输入框粘贴');if(!target)throw Error('未找到原输入框；内容已复制，请手动粘贴');const saved=target;target=null;return request('paste',{target:saved});},
     async restore(){if(process.platform==='win32'&&target)return request('restore',{target});},
