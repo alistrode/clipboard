@@ -1,8 +1,8 @@
 {
   "windows": {
     "archive": "clipboard-windows-x64.zip",
-    "sha256": "055cb23542153b05824c1b0fcb1ffe71d0ed4704ee6bb4a32404ed93d1201a62",
-    "bytes": 158484769,
+    "sha256": "2c4cecde8e77e817e55fc173785dfee955c0c25e83a522fa11ac39d54ad7728f",
+    "bytes": 158487748,
     "parts": [
       {
         "file": "windows.part001",
@@ -21,13 +21,13 @@
       },
       {
         "file": "windows.part004",
-        "sha256": "977a1d970c122a6b9c7f94b883a1d4c4276e99300d7bf76b33ff404ada9d53bb",
+        "sha256": "884e4c307227203b65213532c0f89339dad9e09175dd7d8974299d3f402f32d7",
         "bytes": 33554432
       },
       {
         "file": "windows.part005",
-        "sha256": "03ee03b2d2737e94014761b0397fa1d1d6a346828f4f42a1a2f21ce503d0f1ad",
-        "bytes": 24267041
+        "sha256": "89e9359acd11e72e4906c3107f680bd08f98916ade3ad514e313b0d660aa34e5",
+        "bytes": 24270020
       }
     ],
     "verified_platform": false,
@@ -36,28 +36,28 @@
   },
   "linux": {
     "archive": "clipboard-linux-x64.tar.gz",
-    "sha256": "c1e54a3e13690a418a53b4f2ed1c34dd53877a57668ae52eed4cf83f8db08918",
-    "bytes": 123389301,
+    "sha256": "f1c34907ac70d209f74bb3f5544e56accbdb517f53702f8edb12746ad1aec585",
+    "bytes": 123347088,
     "parts": [
       {
         "file": "linux.part001",
-        "sha256": "05b18d709d301c2f5993ce953e1d2212b0abed7b4de26727aaff1d1ddcd74557",
+        "sha256": "29f1d270285c569d50fc3e6ba1ff5061c551ab49eb23c2ae0e2bb4e224c8b47e",
         "bytes": 33554432
       },
       {
         "file": "linux.part002",
-        "sha256": "369ceeed2c385a820ce6919c2fca3ceb8dd766991eb054b667ed0621c366fba0",
+        "sha256": "ac9d2932847a2748c1f8fca6ff3d48b399651c68d2ca867555cb4518b884ff01",
         "bytes": 33554432
       },
       {
         "file": "linux.part003",
-        "sha256": "fda25898c1b4f87fcefb3a3372bed1347c5ccefc8dcee5d89909501650ea3f29",
+        "sha256": "48fc1c3b3e375ec61018adb7e134db96e725b32228097de3402ffb9759785aff",
         "bytes": 33554432
       },
       {
         "file": "linux.part004",
-        "sha256": "69bbbd455cca1e2d6ae0180c9ab19d3f08f5fb3c717b86ec0d6e56d9d9d8bd82",
-        "bytes": 22726005
+        "sha256": "6d3ff399594a39943a56b1c14c0fe9b71faea13a822cc5a96e3da44e77b0c8bf",
+        "bytes": 22683792
       }
     ],
     "verified_platform": false,

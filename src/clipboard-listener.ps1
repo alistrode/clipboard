@@ -19,11 +19,32 @@ public class ClipboardListener : NativeWindow, IDisposable {
   [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint pid);
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder title, int size);
-  static bool GuestOwnsWinV() {
-    uint pid; GetWindowThreadProcessId(GetForegroundWindow(), out pid);
+  long guestForeground;
+  long guestProbeWindow, guestProbeAt;
+  int guestProbeBusy;
+  void ProbeGuestForeground() {
+    IntPtr foreground = GetForegroundWindow();
+    uint pid; GetWindowThreadProcessId(foreground, out pid);
     try { using (var p = System.Diagnostics.Process.GetProcessById((int)pid)) {
-      var title = new System.Text.StringBuilder(512); GetWindowText(GetForegroundWindow(), title, 512); return p.ProcessName.Equals("VirtualBoxVM", StringComparison.OrdinalIgnoreCase) && title.ToString().Contains("Ubuntu-24.04-Version-C");
-    }} catch { return false; }
+      var title = new System.Text.StringBuilder(512); GetWindowText(foreground, title, 512);
+      bool guest = p.ProcessName.Equals("VirtualBoxVM", StringComparison.OrdinalIgnoreCase) && title.ToString().Contains("Ubuntu-24.04-Version-C");
+      System.Threading.Interlocked.Exchange(ref guestForeground, guest ? foreground.ToInt64() : 0);
+    }} catch { System.Threading.Interlocked.Exchange(ref guestForeground, 0); }
+    System.Threading.Interlocked.Exchange(ref guestProbeWindow, foreground.ToInt64());
+    System.Threading.Interlocked.Exchange(ref guestProbeAt, System.Diagnostics.Stopwatch.GetTimestamp());
+  }
+  void QueueGuestProbe() {
+    if (GetForegroundWindow().ToInt64() == System.Threading.Interlocked.Read(ref guestProbeWindow) &&
+        System.Diagnostics.Stopwatch.GetTimestamp() - System.Threading.Interlocked.Read(ref guestProbeAt) < System.Diagnostics.Stopwatch.Frequency) return;
+    if (System.Threading.Interlocked.CompareExchange(ref guestProbeBusy, 1, 0) != 0) return;
+    System.Threading.ThreadPool.QueueUserWorkItem(delegate {
+      try { ProbeGuestForeground(); }
+      finally { System.Threading.Interlocked.Exchange(ref guestProbeBusy, 0); }
+    });
+  }
+  bool GuestOwnsWinV() {
+    long guest = System.Threading.Interlocked.Read(ref guestForeground);
+    return guest != 0 && GetForegroundWindow().ToInt64() == guest;
   }
   KeyboardProc keyboardProc;
   IntPtr keyboardHook;
@@ -31,18 +52,21 @@ public class ClipboardListener : NativeWindow, IDisposable {
   string modePath;
   int parentPid;
   long lastMode = -1;
-  bool winVEnabled, capturing, blockedV, winVQueued, guestWinOrigin;
+  bool winVEnabled, capturing, blockedV, winVQueued, guestWinOrigin, leftWinDown, rightWinDown;
   DateTime heartbeatAt = DateTime.UtcNow, hookAt = DateTime.UtcNow;
   static bool Down(int key) { return GetAsyncKeyState(key) < 0; }
   IntPtr OnKeyboard(int code, IntPtr message, IntPtr data) {
     if (code >= 0) {
       KeyboardData key = (KeyboardData)Marshal.PtrToStructure(data, typeof(KeyboardData));
       int msg = message.ToInt32(); bool pressed = msg == 0x100 || msg == 0x104; bool released = msg == 0x101 || msg == 0x105;
+      if (key.Key == 0x5B) { if (pressed) leftWinDown = true; if (released) leftWinDown = false; }
+      if (key.Key == 0x5C) { if (pressed) rightWinDown = true; if (released) rightWinDown = false; }
+      bool winDown = leftWinDown || rightWinDown || Down(0x5B) || Down(0x5C);
       if ((key.Key == 0x5B || key.Key == 0x5C) && pressed) guestWinOrigin = GuestOwnsWinV();
       if ((key.Key == 0x5B || key.Key == 0x5C) && released) guestWinOrigin = false;
-      if (key.Key == 0x56 && pressed && (Down(0x5B) || Down(0x5C)) && (guestWinOrigin || GuestOwnsWinV())) { blockedV = false; return CallNextHookEx(keyboardHook, code, message, data); }
+      if (key.Key == 0x56 && pressed && winDown && (guestWinOrigin || GuestOwnsWinV())) { blockedV = false; return CallNextHookEx(keyboardHook, code, message, data); }
       if (key.Key == 0x56 && blockedV) { if (released) blockedV = false; return new IntPtr(1); }
-      if (key.Key == 0x56 && pressed && (winVEnabled || capturing) && (Down(0x5B) || Down(0x5C)) && !Down(0x10) && !Down(0x11) && !Down(0x12)) {
+      if (key.Key == 0x56 && pressed && (winVEnabled || capturing) && winDown && !Down(0x10) && !Down(0x11) && !Down(0x12)) {
         blockedV = true;
         // An unused key masks the Start-menu gesture without changing other Win shortcuts.
         keybd_event(0xE8, 0, 0, UIntPtr.Zero); keybd_event(0xE8, 0, 2, UIntPtr.Zero);
@@ -54,6 +78,7 @@ public class ClipboardListener : NativeWindow, IDisposable {
     return CallNextHookEx(keyboardHook, code, message, data);
   }
   void ReadMode() {
+    QueueGuestProbe();
     // Keep the low-level callback short; disk and pipe I/O run on the timer.
     if (winVQueued) { winVQueued = false; Console.WriteLine("WINV"); Console.Out.Flush(); }
     if ((DateTime.UtcNow - hookAt).TotalSeconds >= 10) {
@@ -61,6 +86,7 @@ public class ClipboardListener : NativeWindow, IDisposable {
       if (keyboardHook != IntPtr.Zero) UnhookWindowsHookEx(keyboardHook);
       keyboardHook = SetWindowsHookEx(13, keyboardProc, GetModuleHandle(null), 0);
       if (keyboardHook == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
+      leftWinDown = Down(0x5B); rightWinDown = Down(0x5C);
       if (!Down(0x56)) blockedV = false;
       hookAt = DateTime.UtcNow;
     }
@@ -87,6 +113,8 @@ public class ClipboardListener : NativeWindow, IDisposable {
     CreateHandle(cp);
     if (!AddClipboardFormatListener(Handle)) throw new System.ComponentModel.Win32Exception();
     keyboardProc = OnKeyboard;
+    // Process enumeration must never run inside the low-level hook callback.
+    ProbeGuestForeground();
     keyboardHook = SetWindowsHookEx(13, keyboardProc, GetModuleHandle(null), 0);
     if (keyboardHook == IntPtr.Zero) throw new System.ComponentModel.Win32Exception();
     ReadMode();

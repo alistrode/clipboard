@@ -43,3 +43,5 @@ Windows 当前活动源码已经同步到本分支的 src/，不再仅保留在�
 
 
 Linux 快捷键与输入法的最新验收状态和防误判规则见 [Linux 验收交接](handoff/linux-clipboard-ime-20261026/linux/ACCEPTANCE.md)。
+
+Windows 1.0.6：系统剪贴板读取由独立进程处理，读取延迟或超时不会阻塞主线程的快捷键与窗口事件；读取失败自动重试。Win+V 钩子只进行按键状态及缓存判断，VirtualBox 前台进程识别放在后台完成。原快捷键和历史数据库继续沿用。
