@@ -1,0 +1,5 @@
+<schemalist>
+  <schema id="org.gnome.shell.extensions.direct-input-toggle" path="/org/gnome/shell/extensions/direct-input-toggle/">
+    <key name="toggle-direct-input" type="as"><default>['&lt;Control&gt;space']</default><summary>Direct Chinese/English input switch</summary></key>
+  </schema>
+</schemalist>

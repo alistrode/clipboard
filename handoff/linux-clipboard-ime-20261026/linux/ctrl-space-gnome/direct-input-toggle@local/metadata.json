@@ -1,0 +1,1 @@
+{"uuid":"direct-input-toggle@local","name":"Direct Chinese Input Toggle","description":"Ctrl+Space switches GNOME input sources directly without a chooser; no synthetic keys.","shell-version":["46"],"version":1,"settings-schema":"org.gnome.shell.extensions.direct-input-toggle"}
